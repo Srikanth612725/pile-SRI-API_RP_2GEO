@@ -1,11 +1,13 @@
-# Pile Foundation Designer - Release Summary
+# pile-SRI - Release Summary
 ## Version 1.0.0 | January 2025
+
+**Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.**
 
 ---
 
 ## 🎉 RELEASE OVERVIEW
 
-**Pile Foundation Designer v1.0** is a professional-grade Streamlit application for offshore pile foundation design following **API RP 2GEO Section 8** standards. This release introduces a modern, user-friendly interface with comprehensive calculations for axial and lateral capacity analysis.
+**pile-SRI v1.0** is a professional-grade Streamlit application for offshore pile foundation design following **API RP 2GEO Section 8** standards. This release introduces a modern, user-friendly interface with comprehensive calculations for axial and lateral capacity analysis.
 
 ### Key Highlights
 - ✨ **Modern UI** - Vibrant professional design (70% improvement over spud-SRI)

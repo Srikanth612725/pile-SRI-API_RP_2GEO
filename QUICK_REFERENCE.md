@@ -1,5 +1,7 @@
-# Pile Foundation Designer - Quick Reference Guide
+# pile-SRI - Quick Reference Guide
 ## API RP 2GEO Compliance Application v1.0
+
+**Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.**
 
 ---
 

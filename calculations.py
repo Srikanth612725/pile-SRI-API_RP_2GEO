@@ -1,6 +1,6 @@
 """
-calculations.py - Pile Foundation Design Engine
-================================================
+calculations.py - pile-SRI Calculation Engine
+==============================================
 
 Implements API RP 2GEO Section 8 design methods for offshore pile foundations.
 
@@ -15,6 +15,7 @@ Key Features:
 Reference: API RP 2GEO (Geotechnical and Foundation Design Considerations)
            Section 8: Pile Foundation Design
 
+Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.
 Author: Dr. Chitti S S U Srikanth
 Version: 1.0.0
 """

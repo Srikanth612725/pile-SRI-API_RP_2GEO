@@ -1,5 +1,7 @@
-# Pile Foundation Designer - Complete Project Summary
+# pile-SRI - Complete Project Summary
 ## Professional Offshore Pile Design Application v1.0
+
+**Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.**
 
 ---
 
@@ -312,7 +314,7 @@ Bilinear approximation with smooth transition
 ### Step 1: Installation (2 minutes)
 ```bash
 # Download/clone the files
-cd pile-foundation-designer
+cd pile-SRI
 
 # Create virtual environment
 python -m venv venv

@@ -1,0 +1,14 @@
+# pile-SRI - API RP 2GEO Offshore Pile Foundation Design Application
+# Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.
+# Version: 1.0.0
+# Release Date: 2025-01-15
+
+# Core Dependencies (Essential for app to run)
+streamlit>=1.32.0
+pandas>=2.2.0
+numpy>=1.26.0
+scipy>=1.12.0
+plotly>=5.19.0
+
+# Data & Engineering
+openpyxl>=3.1.0
