@@ -1,16 +1,18 @@
-# Pile Foundation Designer
+# pile-SRI
 ## Professional Offshore Pile Design per API RP 2GEO
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/yourrepo)
 [![Python](https://img.shields.io/badge/python-3.8%2B-brightgreen)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-BSD%203--Clause-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen)](README.md)
+
+**Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.**
 
 ---
 
 ## 🎯 Overview
 
-**Pile Foundation Designer** is a professional-grade application for designing offshore pile foundations following **API RP 2GEO** standards. It combines modern UI/UX with comprehensive engineering calculations for:
+**pile-SRI** is a professional-grade application for designing offshore pile foundations following **API RP 2GEO** standards. It combines modern UI/UX with comprehensive engineering calculations for:
 
 - **Axial Capacity**: Compression & tension in clay and sand
 - **Lateral Capacity**: p-y curves (Matlock, Reese, Sand methods)
@@ -39,8 +41,8 @@
 
 ```bash
 # 1. Clone or download repository
-git clone https://github.com/yourusername/pile-foundation-designer.git
-cd pile-foundation-designer
+git clone https://github.com/Srikanth612725/pile-SRI-API_RP_2GEO.git
+cd pile-SRI-API_RP_2GEO
 
 # 2. Create virtual environment (recommended)
 python -m venv venv
@@ -117,7 +119,7 @@ streamlit run app_pile_design.py
 
 ### Package Structure
 ```
-pile-foundation-designer/
+pile-SRI/
 │
 ├── app_pile_design.py          # Main Streamlit application
 ├── calculations.py             # Calculation engine (1200+ lines)
@@ -498,9 +500,9 @@ curves = analysis.compute_py_curves([5, 10, 20])
 
 ## 📜 License & Legal
 
-**License:** MIT  
-**Copyright:** 2025 Engineering Team  
-**API Reference:** API RP 2GEO (American Petroleum Institute)  
+**License:** BSD 3-Clause
+**Copyright:** 2025 Dr. Chitti S S U Srikanth. All rights reserved.
+**API Reference:** API RP 2GEO (American Petroleum Institute)
 
 See [LICENSE](LICENSE) file for details.
 
@@ -547,8 +549,8 @@ See [LICENSE](LICENSE) file for details.
 
 ---
 
-**Last Updated:** January 2025  
-**Maintained By:** Engineering Team  
+**Last Updated:** January 2025
+**Author & Maintainer:** Dr. Chitti S S U Srikanth
 **Status:** Production Ready ✅
 
 ---

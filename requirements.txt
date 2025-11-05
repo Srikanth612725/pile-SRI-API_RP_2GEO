@@ -1,4 +1,5 @@
-# Pile Foundation Design Application - API RP 2GEO
+# pile-SRI - API RP 2GEO Offshore Pile Foundation Design Application
+# Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.
 # Version: 1.0.0
 # Release Date: 2025-01-15
 

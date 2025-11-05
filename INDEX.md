@@ -1,12 +1,14 @@
-# Pile Foundation Designer - Master Index
+# pile-SRI - Master Index
 ## Complete Package Navigation Guide
+
+**Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.**
 
 ---
 
 ## 📚 FILE DIRECTORY
 
 ```
-📦 pile-foundation-designer/
+📦 pile-SRI/
 │
 ├── 🏃 QUICK START (Start here!)
 │   ├── README.md                    ← Installation & usage (START HERE)

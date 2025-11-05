@@ -1,6 +1,6 @@
 """
-app_pile_design.py - Modern Pile Foundation Design Application
-=================================================================
+app_pile_design.py - pile-SRI Application
+==========================================
 
 Professional-grade Streamlit application for offshore pile foundation design
 following API RP 2GEO standards.
@@ -15,7 +15,8 @@ Features:
 
 Run with: streamlit run app_pile_design.py
 
-Author: Dr. Chitti Satya S U Srikanth
+Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.
+Author: Dr. Chitti S S U Srikanth
 Version: 1.0.0
 """
 
@@ -47,7 +48,7 @@ except ImportError:
 # ============================================================================
 
 st.set_page_config(
-    page_title="Pile Foundation Designer · API RP 2GEO",
+    page_title="pile-SRI · API RP 2GEO",
     page_icon="🏗️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -97,7 +98,7 @@ def render_header():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
-        <h1 style='text-align: center;'>🏗️ PILE FOUNDATION DESIGNER</h1>
+        <h1 style='text-align: center;'>🏗️ pile-SRI</h1>
         <p style='text-align: center; color: #6B5BFF; font-size: 14px;'>
         API RP 2GEO Compliance | Offshore Foundation Design
         </p>
