@@ -150,9 +150,19 @@ def discretize_tz_curve_5points(z_full: np.ndarray, t_full: np.ndarray) -> Dict:
         result.update({f'z{i+1}': 0.0 for i in range(5)})
         return result
 
+    # Remove zero point if it exists (first point is often 0,0)
+    if len(z_full) > 1 and z_full[0] == 0.0 and t_full[0] == 0.0:
+        z_full = z_full[1:]
+        t_full = t_full[1:]
+
+    if len(z_full) == 0:
+        result = {f't{i+1}': 0.0 for i in range(5)}
+        result.update({f'z{i+1}': 0.0 for i in range(5)})
+        return result
+
     t_max = np.max(t_full)
 
-    # Skip zero point - use 5 meaningful discretization points
+    # Use 5 meaningful discretization points
     target_ratios = [0.10, 0.25, 0.50, 0.75, 1.0]
     result = {}
 
@@ -180,9 +190,19 @@ def discretize_qz_curve_5points(z_full: np.ndarray, Q_full: np.ndarray) -> Dict:
         result.update({f'z{i+1}': 0.0 for i in range(5)})
         return result
 
+    # Remove zero point if it exists (first point is often 0,0)
+    if len(z_full) > 1 and z_full[0] == 0.0 and Q_full[0] == 0.0:
+        z_full = z_full[1:]
+        Q_full = Q_full[1:]
+
+    if len(z_full) == 0:
+        result = {f'q{i+1}': 0.0 for i in range(5)}
+        result.update({f'z{i+1}': 0.0 for i in range(5)})
+        return result
+
     Q_max = np.max(Q_full)
 
-    # Skip zero point - use 5 meaningful discretization points
+    # Use 5 meaningful discretization points
     target_ratios = [0.10, 0.25, 0.50, 0.75, 1.0]
     result = {}
 
@@ -210,9 +230,19 @@ def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
         result.update({f'y{i+1}': 0.0 for i in range(4)})
         return result
 
+    # Remove zero point if it exists (first point is often 0,0)
+    if len(y_full) > 1 and y_full[0] == 0.0 and p_full[0] == 0.0:
+        y_full = y_full[1:]
+        p_full = p_full[1:]
+
+    if len(y_full) == 0:
+        result = {f'p{i+1}': 0.0 for i in range(4)}
+        result.update({f'y{i+1}': 0.0 for i in range(4)})
+        return result
+
     p_max = np.max(p_full)
 
-    # Skip zero point - use 4 meaningful discretization points
+    # Use 4 meaningful discretization points
     target_ratios = [0.25, 0.50, 0.75, 1.0]
     result = {}
 
