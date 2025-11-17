@@ -377,8 +377,11 @@ class SoilProfile:
 
     def get_layer_at_depth(self, depth_m: float) -> Optional[SoilLayer]:
         """Get soil layer containing the given depth."""
+        # Add small tolerance for boundary cases (e.g., depth exactly at layer bottom)
+        tolerance = 0.001  # 1mm tolerance
+
         for layer in self.layers:
-            if layer.depth_top_m <= depth_m < layer.depth_bot_m:
+            if layer.depth_top_m <= depth_m <= layer.depth_bot_m + tolerance:
                 return layer
         return None
 
@@ -1068,44 +1071,53 @@ class LoadDisplacementTables:
 
     @staticmethod
     def generate_qz_table(profile: SoilProfile, pile: PileProperties,
-                         tip_depth_m: float) -> pd.DataFrame:
+                         depths_m: List[float]) -> pd.DataFrame:
         """
-        Generate industry-standard Q-z table in WIDE FORMAT.
+        Generate industry-standard Q-z table in WIDE FORMAT for multiple depths.
 
-        Format: Single row for tip
+        Format: One row per depth
         Columns: Depth(m), Soil type, tip, q1, z1, q2, z2, q3, z3, q4, z4, q5, z5
         Units: q in MN, z in mm
         tip: 0=unplugged, 1=plugged
         """
-        # Ensure tip depth is within valid range
-        if tip_depth_m <= 0:
-            cols = ['Depth', 'Soil type', 'tip'] + [f'{x}{i+1}' for x in ['q', 'z'] for i in range(5)]
-            return pd.DataFrame(columns=cols)
+        all_results = []
 
-        z_disp, Q_resist = LoadDisplacementTables.qz_curve(tip_depth_m, profile, pile)
+        for depth in depths_m:
+            # Ensure depth is valid
+            if depth <= 0:
+                continue
 
-        if len(z_disp) == 0:
+            z_disp, Q_resist = LoadDisplacementTables.qz_curve(depth, profile, pile)
+
+            if len(z_disp) == 0:
+                continue  # Skip this depth if no data
+
+            # Discretize to 5 points
+            row = discretize_qz_curve_5points(z_disp, Q_resist)
+            row['Depth'] = depth
+
+            # Get soil type at this depth
+            layer = profile.get_layer_at_depth(depth)
+            row['Soil type'] = layer.soil_type.value if layer else 'SAND'
+
+            # Determine if plugged (plugged=1 for closed-end piles)
+            row['tip'] = 1 if pile.pile_type == PileType.DRIVEN_PIPE_CLOSED else 0
+
+            all_results.append(row)
+
+        if not all_results:
             # Return empty DataFrame with proper columns
             cols = ['Depth', 'Soil type', 'tip'] + [f'{x}{i+1}' for x in ['q', 'z'] for i in range(5)]
             return pd.DataFrame(columns=cols)
 
-        # Discretize to 5 points
-        row = discretize_qz_curve_5points(z_disp, Q_resist)
-        row['Depth'] = tip_depth_m
-
-        # Get soil type at tip
-        layer = profile.get_layer_at_depth(tip_depth_m)
-        row['Soil type'] = layer.soil_type.value if layer else 'SAND'
-
-        # Determine if plugged (plugged=1 for closed-end piles)
-        row['tip'] = 1 if pile.pile_type == PileType.DRIVEN_PIPE_CLOSED else 0
+        df = pd.DataFrame(all_results)
 
         # Reorder columns
         col_order = ['Depth', 'Soil type', 'tip']
         for i in range(1, 6):
             col_order.extend([f'q{i}', f'z{i}'])
 
-        return pd.DataFrame([row])[col_order]
+        return df[col_order]
 
 
 # ============================================================================
@@ -1122,21 +1134,22 @@ class PileDesignAnalysis:
 
     def run_complete_analysis(self, max_depth_m: float, dz: float = 0.5,
                              tz_depths: Optional[List[float]] = None,
+                             qz_depths: Optional[List[float]] = None,
                              py_depths: Optional[List[float]] = None,
                              analysis_type: AnalysisType = AnalysisType.STATIC,
                              use_lrfd: bool = True) -> Dict:
         """
         Run complete analysis with industry-standard outputs.
-        
+
         IMPROVEMENT #4: Complete layered soil integration
         IMPROVEMENT #5: LRFD option
-        
+
         Returns dictionary containing:
         - capacity_compression_df: Compression capacity profile
         - capacity_tension_df: Tension capacity profile
         - tz_compression_table: Industry-standard t-z table for compression
         - tz_tension_table: Industry-standard t-z table for tension
-        - qz_table: Q-z table
+        - qz_table: Q-z table (multiple depths)
         - py_table: p-y table
         """
         results = {}
@@ -1164,10 +1177,18 @@ class PileDesignAnalysis:
         results['tz_compression_table'] = tz_table
         results['tz_tension_table'] = tz_table
         
-        # Q-z table (at pile tip, not max_depth_m)
-        pile_tip_depth = self.pile.length_m if self.pile.length_m > 0 else max_depth_m
+        # Q-z table (generate at multiple depths like t-z)
+        if qz_depths is None:
+            # Generate Q-z at intervals similar to t-z, typically every 5m
+            qz_depths = np.arange(5, max_depth_m + 1, 5).tolist()
+            # Also include the pile tip depth if it's different
+            pile_tip_depth = self.pile.length_m if self.pile.length_m > 0 else max_depth_m
+            if pile_tip_depth not in qz_depths and pile_tip_depth > 0:
+                qz_depths.append(pile_tip_depth)
+                qz_depths = sorted(qz_depths)
+
         results['qz_table'] = LoadDisplacementTables.generate_qz_table(
-            self.profile, self.pile, pile_tip_depth
+            self.profile, self.pile, qz_depths
         )
         
         # p-y table
