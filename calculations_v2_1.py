@@ -137,91 +137,83 @@ CARBONATE_REDUCTION_FACTORS = {
 # UTILITY FUNCTIONS FOR INDUSTRY-STANDARD DISCRETIZATION
 # ============================================================================
 
-def discretize_tz_curve_5points(z_full: np.ndarray, t_full: np.ndarray) -> pd.DataFrame:
+def discretize_tz_curve_5points(z_full: np.ndarray, t_full: np.ndarray) -> Dict:
     """
-    Discretize t-z curve to industry-standard 5-point format.
-    
+    Discretize t-z curve to industry-standard 5-point format (WIDE FORMAT).
+
     Standard points: 0, 0.25, 0.50, 0.75, 1.0 of peak
-    
-    Returns DataFrame with columns: z_m, t_kPa, t_t_max_ratio
+
+    Returns dict with keys: t1-t5 (MN/m), z1-z5 (mm)
     """
     if len(z_full) == 0:
-        return pd.DataFrame(columns=['z_m', 't_kPa', 't_t_max_ratio'])
-    
+        return {f't{i+1}': 0.0 for i in range(5)} | {f'z{i+1}': 0.0 for i in range(5)}
+
     t_max = np.max(t_full)
-    z_peak = z_full[np.argmax(t_full)]
-    
+
     target_ratios = [0.0, 0.25, 0.50, 0.75, 1.0]
-    z_5pt = []
-    t_5pt = []
-    
-    for ratio in target_ratios:
+    result = {}
+
+    for i, ratio in enumerate(target_ratios, start=1):
         target_t = ratio * t_max
         idx = np.argmin(np.abs(t_full - target_t))
-        z_5pt.append(z_full[idx])
-        t_5pt.append(t_full[idx])
-    
-    return pd.DataFrame({
-        'z_m': z_5pt,
-        't_kPa': t_5pt,
-        't_t_max_ratio': [t/t_max if t_max > 0 else 0 for t in t_5pt]
-    })
+
+        # Convert units: t from kPa to MN/m, z from m to mm
+        result[f't{i}'] = t_full[idx] / 1000.0  # kPa to MN/m²
+        result[f'z{i}'] = z_full[idx] * 1000.0  # m to mm
+
+    return result
 
 
-def discretize_qz_curve_5points(z_full: np.ndarray, Q_full: np.ndarray) -> pd.DataFrame:
+def discretize_qz_curve_5points(z_full: np.ndarray, Q_full: np.ndarray) -> Dict:
     """
-    Discretize Q-z curve to industry-standard 5-point format.
-    
-    Returns DataFrame with columns: z_m, Q_kN, Q_Qp_ratio
+    Discretize Q-z curve to industry-standard 5-point format (WIDE FORMAT).
+
+    Returns dict with keys: q1-q5 (MN), z1-z5 (mm)
     """
     if len(z_full) == 0:
-        return pd.DataFrame(columns=['z_m', 'Q_kN', 'Q_Qp_ratio'])
-    
+        return {f'q{i+1}': 0.0 for i in range(5)} | {f'z{i+1}': 0.0 for i in range(5)}
+
     Q_max = np.max(Q_full)
-    
+
     target_ratios = [0.0, 0.25, 0.50, 0.75, 1.0]
-    z_5pt = []
-    Q_5pt = []
-    
-    for ratio in target_ratios:
+    result = {}
+
+    for i, ratio in enumerate(target_ratios, start=1):
         target_Q = ratio * Q_max
         idx = np.argmin(np.abs(Q_full - target_Q))
-        z_5pt.append(z_full[idx])
-        Q_5pt.append(Q_full[idx])
-    
-    return pd.DataFrame({
-        'z_m': z_5pt,
-        'Q_kN': Q_5pt,
-        'Q_Qp_ratio': [Q/Q_max if Q_max > 0 else 0 for Q in Q_5pt]
-    })
+
+        # Convert units: Q from kN to MN, z from m to mm
+        result[f'q{i}'] = Q_full[idx] / 1000.0  # kN to MN
+        result[f'z{i}'] = z_full[idx] * 1000.0  # m to mm
+
+    return result
 
 
-def discretize_py_curve_5points(y_full: np.ndarray, p_full: np.ndarray) -> pd.DataFrame:
+def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
     """
-    Discretize p-y curve to industry-standard 5-point format.
-    
-    Returns DataFrame with columns: y_m, p_kPa, p_pu_ratio
+    Discretize p-y curve to industry-standard 4-point format (WIDE FORMAT).
+
+    Standard points: 0, 0.33, 0.67, 1.0 of peak
+
+    Returns dict with keys: p1-p4 (kN/m), y1-y4 (mm)
     """
     if len(y_full) == 0:
-        return pd.DataFrame(columns=['y_m', 'p_kPa', 'p_pu_ratio'])
-    
+        return {f'p{i+1}': 0.0 for i in range(4)} | {f'y{i+1}': 0.0 for i in range(4)}
+
     p_max = np.max(p_full)
-    
-    target_ratios = [0.0, 0.25, 0.50, 0.75, 1.0]
-    y_5pt = []
-    p_5pt = []
-    
-    for ratio in target_ratios:
+
+    target_ratios = [0.0, 0.33, 0.67, 1.0]
+    result = {}
+
+    for i, ratio in enumerate(target_ratios, start=1):
         target_p = ratio * p_max
         idx = np.argmin(np.abs(p_full - target_p))
-        y_5pt.append(y_full[idx])
-        p_5pt.append(p_full[idx])
-    
-    return pd.DataFrame({
-        'y_m': y_5pt,
-        'p_kPa': p_5pt,
-        'p_pu_ratio': [p/p_max if p_max > 0 else 0 for p in p_5pt]
-    })
+
+        # Convert units: p stays in kN/m, y from m to mm
+        result[f'p{i}'] = p_full[idx]  # Already in kN/m
+        result[f'y{i}'] = y_full[idx] * 1000.0  # m to mm
+
+    return result
 
 
 # ============================================================================
@@ -856,44 +848,53 @@ class LateralCapacity:
                          depths_m: List[float],
                          analysis_type: AnalysisType = AnalysisType.STATIC) -> pd.DataFrame:
         """
-        Generate industry-standard p-y table for multiple depths.
-        
-        IMPROVEMENT: 5-point discretization for each depth
+        Generate industry-standard p-y table in WIDE FORMAT.
+
+        Format: One row per depth with 4 points
+        Columns: Depth(m), Soil, p1, y1, p2, y2, p3, y3, p4, y4
+        Units: p in kN/m, y in mm
         """
         all_results = []
 
-        for z in depths_m:
-            layer = profile.get_layer_at_depth(z)
+        for depth in depths_m:
+            layer = profile.get_layer_at_depth(depth)
             if layer is None:
                 continue
 
             # Get p-y curve
             if layer.soil_type in [SoilType.CLAY, SoilType.SILT]:
                 # Use profile method for consistency and to avoid attribute access issues
-                su = profile.get_property_at_depth(z, "su")
+                su = profile.get_property_at_depth(depth, "su")
                 if np.isfinite(su) and su <= 100:
-                    y, p = LateralCapacity.matlock_soft_clay(z, profile, pile, analysis_type)
+                    y, p = LateralCapacity.matlock_soft_clay(depth, profile, pile, analysis_type)
                 elif np.isfinite(su) and su > 100:
-                    y, p = LateralCapacity.reese_stiff_clay(z, profile, pile, analysis_type)
+                    y, p = LateralCapacity.reese_stiff_clay(depth, profile, pile, analysis_type)
                 else:
                     continue  # Skip if su is not available
             else:
-                y, p = LateralCapacity.sand_py_curve(z, profile, pile, analysis_type)
+                y, p = LateralCapacity.sand_py_curve(depth, profile, pile, analysis_type)
 
             if len(y) == 0:
                 continue
 
-            # Discretize to 5 points
-            df_5pt = discretize_py_curve_5points(y, p)
-            df_5pt['depth_m'] = z
-            df_5pt['soil_type'] = layer.soil_type.value
+            # Discretize to 4 points (wide format)
+            row = discretize_py_curve_4points(y, p)
+            row['Depth'] = depth
+            row['Soil'] = layer.soil_type.value
 
-            all_results.append(df_5pt)
+            all_results.append(row)
 
         if not all_results:
-            return pd.DataFrame(columns=['depth_m', 'soil_type', 'y_m', 'p_kPa', 'p_pu_ratio'])
+            cols = ['Depth', 'Soil'] + [f'{x}{i+1}' for x in ['p', 'y'] for i in range(4)]
+            return pd.DataFrame(columns=cols)
 
-        return pd.concat(all_results, ignore_index=True)
+        df = pd.DataFrame(all_results)
+        # Reorder columns: Depth, Soil, p1, y1, p2, y2, p3, y3, p4, y4
+        col_order = ['Depth', 'Soil']
+        for i in range(1, 5):
+            col_order.extend([f'p{i}', f'y{i}'])
+
+        return df[col_order]
 
 
 # ============================================================================
@@ -973,58 +974,91 @@ class LoadDisplacementTables:
 
     @staticmethod
     def generate_tz_table(profile: SoilProfile, pile: PileProperties,
-                         depths_m: List[float], for_tension: bool = False) -> pd.DataFrame:
+                         depths_m: List[float]) -> pd.DataFrame:
         """
-        Generate industry-standard t-z table for multiple depths.
-        
-        IMPROVEMENT: 5-point discretization format
+        Generate industry-standard t-z table in WIDE FORMAT.
+
+        Format: Each depth has TWO rows (compression 'c' and tension 't')
+        Columns: Depth(m), Soil type, t1, z1, t2, z2, t3, z3, t4, z4, t5, z5
+        Units: t in MN/m, z in mm
         """
         all_results = []
 
-        for z in depths_m:
-            layer = profile.get_layer_at_depth(z)
+        for depth in depths_m:
+            layer = profile.get_layer_at_depth(depth)
             if layer is None:
                 continue
 
-            # Get t-z curve
+            # Generate COMPRESSION row
             if layer.soil_type in [SoilType.CLAY, SoilType.SILT]:
-                z_disp, t_resist = LoadDisplacementTables.tz_curve_clay(z, profile, pile, for_tension)
+                z_disp_c, t_resist_c = LoadDisplacementTables.tz_curve_clay(depth, profile, pile, for_tension=False)
             else:
-                z_disp, t_resist = LoadDisplacementTables.tz_curve_sand(z, profile, pile, for_tension)
+                z_disp_c, t_resist_c = LoadDisplacementTables.tz_curve_sand(depth, profile, pile, for_tension=False)
 
-            if len(z_disp) == 0:
-                continue
+            if len(z_disp_c) > 0:
+                row_c = discretize_tz_curve_5points(z_disp_c, t_resist_c)
+                row_c['Depth'] = depth
+                row_c['Soil type'] = 'c'
+                all_results.append(row_c)
 
-            # Discretize to 5 points
-            df_5pt = discretize_tz_curve_5points(z_disp, t_resist)
-            df_5pt['depth_m'] = z
-            df_5pt['soil_type'] = layer.soil_type.value
+            # Generate TENSION row
+            if layer.soil_type in [SoilType.CLAY, SoilType.SILT]:
+                z_disp_t, t_resist_t = LoadDisplacementTables.tz_curve_clay(depth, profile, pile, for_tension=True)
+            else:
+                z_disp_t, t_resist_t = LoadDisplacementTables.tz_curve_sand(depth, profile, pile, for_tension=True)
 
-            all_results.append(df_5pt)
+            if len(z_disp_t) > 0:
+                row_t = discretize_tz_curve_5points(z_disp_t, t_resist_t)
+                row_t['Depth'] = depth
+                row_t['Soil type'] = 't'
+                all_results.append(row_t)
 
         if not all_results:
-            return pd.DataFrame(columns=['depth_m', 'soil_type', 'z_m', 't_kPa', 't_t_max_ratio'])
+            cols = ['Depth', 'Soil type'] + [f'{x}{i+1}' for x in ['t', 'z'] for i in range(5)]
+            return pd.DataFrame(columns=cols)
 
-        return pd.concat(all_results, ignore_index=True)
+        df = pd.DataFrame(all_results)
+        # Reorder columns: Depth, Soil type, t1, z1, t2, z2, t3, z3, t4, z4, t5, z5
+        col_order = ['Depth', 'Soil type']
+        for i in range(1, 6):
+            col_order.extend([f't{i}', f'z{i}'])
+
+        return df[col_order]
 
     @staticmethod
     def generate_qz_table(profile: SoilProfile, pile: PileProperties,
                          tip_depth_m: float) -> pd.DataFrame:
         """
-        Generate industry-standard Q-z table for pile tip.
-        
-        IMPROVEMENT: 5-point discretization format
+        Generate industry-standard Q-z table in WIDE FORMAT.
+
+        Format: Single row for tip
+        Columns: Depth(m), Soil type, tip, q1, z1, q2, z2, q3, z3, q4, z4, q5, z5
+        Units: q in MN, z in mm
+        tip: 0=unplugged, 1=plugged
         """
         z_disp, Q_resist = LoadDisplacementTables.qz_curve(tip_depth_m, profile, pile)
 
         if len(z_disp) == 0:
-            return pd.DataFrame(columns=['z_m', 'Q_kN', 'Q_Qp_ratio'])
+            cols = ['Depth', 'Soil type', 'tip'] + [f'{x}{i+1}' for x in ['q', 'z'] for i in range(5)]
+            return pd.DataFrame(columns=cols)
 
         # Discretize to 5 points
-        df_5pt = discretize_qz_curve_5points(z_disp, Q_resist)
-        df_5pt['tip_depth_m'] = tip_depth_m
+        row = discretize_qz_curve_5points(z_disp, Q_resist)
+        row['Depth'] = tip_depth_m
 
-        return df_5pt
+        # Get soil type at tip
+        layer = profile.get_layer_at_depth(tip_depth_m)
+        row['Soil type'] = layer.soil_type.value if layer else 'SAND'
+
+        # Determine if plugged (assuming plugged=1 for closed-end or when D/t > 20)
+        row['tip'] = 1 if pile.pile_type == PileType.CLOSED_END else 0
+
+        # Reorder columns
+        col_order = ['Depth', 'Soil type', 'tip']
+        for i in range(1, 6):
+            col_order.extend([f'q{i}', f'z{i}'])
+
+        return pd.DataFrame([row])[col_order]
 
 
 # ============================================================================
@@ -1071,17 +1105,17 @@ class PileDesignAnalysis:
             resistance_factor=None if use_lrfd else 1.0
         )
         
-        # t-z tables
+        # t-z tables (wide format includes both compression and tension)
         if tz_depths is None:
             tz_depths = np.arange(5, max_depth_m, 5).tolist()
-        
-        results['tz_compression_table'] = LoadDisplacementTables.generate_tz_table(
-            self.profile, self.pile, tz_depths, for_tension=False
+
+        tz_table = LoadDisplacementTables.generate_tz_table(
+            self.profile, self.pile, tz_depths
         )
-        
-        results['tz_tension_table'] = LoadDisplacementTables.generate_tz_table(
-            self.profile, self.pile, tz_depths, for_tension=True
-        )
+
+        # Store same table for both (contains both 'c' and 't' rows)
+        results['tz_compression_table'] = tz_table
+        results['tz_tension_table'] = tz_table
         
         # Q-z table
         results['qz_table'] = LoadDisplacementTables.generate_qz_table(
