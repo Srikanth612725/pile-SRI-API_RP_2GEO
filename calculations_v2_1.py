@@ -869,11 +869,14 @@ class LateralCapacity:
 
             # Get p-y curve
             if layer.soil_type in [SoilType.CLAY, SoilType.SILT]:
-                su = layer.get_property_at_depth(z - layer.depth_top_m, "su")
-                if su <= 100:
+                # Use profile method for consistency and to avoid attribute access issues
+                su = profile.get_property_at_depth(z, "su")
+                if np.isfinite(su) and su <= 100:
                     y, p = LateralCapacity.matlock_soft_clay(z, profile, pile, analysis_type)
-                else:
+                elif np.isfinite(su) and su > 100:
                     y, p = LateralCapacity.reese_stiff_clay(z, profile, pile, analysis_type)
+                else:
+                    continue  # Skip if su is not available
             else:
                 y, p = LateralCapacity.sand_py_curve(z, profile, pile, analysis_type)
 
