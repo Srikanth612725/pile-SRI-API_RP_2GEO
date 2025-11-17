@@ -803,41 +803,45 @@ def render_results(config, pile, profile):
                 st.markdown("#### t-z Curves (Shaft Friction)")
                 
                 tz_comp = results['tz_compression_table']
-                if not tz_comp.empty:
+                if not tz_comp.empty and 'Soil type' in tz_comp.columns:
                     # Plot (reshape from wide format) - show compression only
                     fig_tz = go.Figure()
 
-                    for _, row in tz_comp[tz_comp['Soil type'] == 'c'].iterrows():
-                        depth = row['Depth']
-                        # Extract z and t values from wide format (convert mm to m for plotting)
-                        z_vals = [row[f'z{i}']/1000 for i in range(1, 6)]  # mm to m
-                        t_vals = [row[f't{i}']*1000 for i in range(1, 6)]  # MN/m to kN/m
+                    compression_rows = tz_comp[tz_comp['Soil type'] == 'c']
+                    if not compression_rows.empty:
+                        for _, row in compression_rows.iterrows():
+                            depth = row['Depth']
+                            # Extract z and t values from wide format (convert mm to m for plotting)
+                            z_vals = [row[f'z{i}']/1000 for i in range(1, 6)]  # mm to m
+                            t_vals = [row[f't{i}']*1000 for i in range(1, 6)]  # MN/m to kN/m
 
-                        fig_tz.add_trace(go.Scatter(
-                            x=z_vals,
-                            y=t_vals,
-                            name=f"{depth:.1f}m",
-                            mode='lines+markers',
-                        ))
+                            fig_tz.add_trace(go.Scatter(
+                                x=z_vals,
+                                y=t_vals,
+                                name=f"{depth:.1f}m",
+                                mode='lines+markers',
+                            ))
 
-                    fig_tz.update_layout(
-                        xaxis_title="Displacement (m)",
-                        yaxis_title="Unit Friction (kN/m)",
-                        height=400,
-                        template='plotly_white'
-                    )
-                    st.plotly_chart(fig_tz, use_container_width=True)
+                        fig_tz.update_layout(
+                            xaxis_title="Displacement (m)",
+                            yaxis_title="Unit Friction (kN/m)",
+                            height=400,
+                            template='plotly_white'
+                        )
+                        st.plotly_chart(fig_tz, use_container_width=True)
 
                     # Display wide-format table
                     st.markdown("**Format:** t values in MN/m, z values in mm | 'c'=compression, 't'=tension")
                     st.dataframe(tz_comp, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No t-z data available for selected configuration.")
             
             # Q-z curve
             with col2:
                 st.markdown("#### Q-z Curve (End Bearing)")
                 
                 qz = results['qz_table']
-                if not qz.empty:
+                if not qz.empty and 'q1' in qz.columns:
                     # Plot (reshape from wide format)
                     fig_qz = go.Figure()
 
@@ -865,6 +869,8 @@ def render_results(config, pile, profile):
                     # Display wide-format table
                     st.markdown("**Format:** q values in MN, z values in mm | tip: 0=unplugged, 1=plugged")
                     st.dataframe(qz, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No Q-z data available for selected configuration.")
 
         # TAB 3: Lateral p-y curves
         with tab3:
@@ -872,7 +878,7 @@ def render_results(config, pile, profile):
                 st.subheader("Lateral p-y Curves")
                 
                 py_table = results['py_table']
-                if not py_table.empty:
+                if not py_table.empty and 'p1' in py_table.columns and 'Depth' in py_table.columns:
                     # Plot all depths (reshape from wide format)
                     fig_py = go.Figure()
 
@@ -902,6 +908,8 @@ def render_results(config, pile, profile):
                     st.markdown("### 📋 4-Point p-y Table (Industry Standard)")
                     st.markdown("**Format:** p values in kN/m, y values in mm")
                     st.dataframe(py_table, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No p-y data available for selected configuration.")
             else:
                 st.info("Lateral analysis not selected. Enable in sidebar.")
 
