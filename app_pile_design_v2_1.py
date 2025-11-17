@@ -82,16 +82,26 @@ st.markdown("""
         color: white !important;
     }
 
-    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: white !important;
-        font-weight: 700 !important;
-    }
 
-    /* Headers with gradient text */
-    h1, h2 {
+    /* Headers with gradient text (exclude sidebar h2/h3 to prevent visibility issues) */
+    h1, .main h2 {
         background: linear-gradient(135deg, #0052CC 0%, #6B5BFF 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+    }
+
+    /* Ensure sidebar headings remain visible with contrasting background */
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        background: rgba(255, 255, 255, 0.2) !important;
+        -webkit-text-fill-color: white !important;
+        color: white !important;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        margin: 12px 0 !important;
+        font-weight: 700 !important;
+        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
+        backdrop-filter: blur(10px) !important;
     }
 
     /* Primary buttons */
