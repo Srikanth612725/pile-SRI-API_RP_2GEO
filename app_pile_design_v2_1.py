@@ -90,11 +90,18 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
     }
 
-    /* Ensure sidebar headings remain visible with proper styling */
+    /* Ensure sidebar headings remain visible with contrasting background */
     [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        background: none !important;
+        background: rgba(255, 255, 255, 0.2) !important;
         -webkit-text-fill-color: white !important;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        color: white !important;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        margin: 12px 0 !important;
+        font-weight: 700 !important;
+        border-left: 4px solid rgba(255, 255, 255, 0.5) !important;
+        backdrop-filter: blur(10px) !important;
     }
 
     /* Primary buttons */
