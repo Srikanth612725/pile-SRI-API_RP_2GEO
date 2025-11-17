@@ -870,7 +870,11 @@ def render_results(config, pile, profile):
                     st.markdown("**Format:** q values in MN, z values in mm | tip: 0=unplugged, 1=plugged")
                     st.dataframe(qz, use_container_width=True, hide_index=True)
                 else:
-                    st.info("No Q-z data available for selected configuration.")
+                    st.warning("⚠️ No Q-z data available. Possible reasons:\n\n"
+                              "- Pile length not specified or is zero\n"
+                              "- No soil layer at pile tip depth\n"
+                              "- End bearing capacity calculated as zero\n\n"
+                              "👉 Check your **pile length** and ensure soil profile extends to pile tip depth.")
 
         # TAB 3: Lateral p-y curves
         with tab3:

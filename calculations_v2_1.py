@@ -1042,9 +1042,15 @@ class LoadDisplacementTables:
         Units: q in MN, z in mm
         tip: 0=unplugged, 1=plugged
         """
+        # Ensure tip depth is within valid range
+        if tip_depth_m <= 0:
+            cols = ['Depth', 'Soil type', 'tip'] + [f'{x}{i+1}' for x in ['q', 'z'] for i in range(5)]
+            return pd.DataFrame(columns=cols)
+
         z_disp, Q_resist = LoadDisplacementTables.qz_curve(tip_depth_m, profile, pile)
 
         if len(z_disp) == 0:
+            # Return empty DataFrame with proper columns
             cols = ['Depth', 'Soil type', 'tip'] + [f'{x}{i+1}' for x in ['q', 'z'] for i in range(5)]
             return pd.DataFrame(columns=cols)
 
@@ -1123,9 +1129,10 @@ class PileDesignAnalysis:
         results['tz_compression_table'] = tz_table
         results['tz_tension_table'] = tz_table
         
-        # Q-z table
+        # Q-z table (at pile tip, not max_depth_m)
+        pile_tip_depth = self.pile.length_m if self.pile.length_m > 0 else max_depth_m
         results['qz_table'] = LoadDisplacementTables.generate_qz_table(
-            self.profile, self.pile, max_depth_m
+            self.profile, self.pile, pile_tip_depth
         )
         
         # p-y table
