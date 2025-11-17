@@ -52,7 +52,7 @@ except ImportError:
 # ============================================================================
 
 st.set_page_config(
-    page_title="pile-SRI v2.1 · API RP 2GEO",
+    page_title="pile-SRI v2.6 · API RP 2GEO",
     page_icon="🗝️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -166,7 +166,7 @@ def render_header():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
-        <h1 style='text-align: center;'>🗝️ pile-SRI v2.1</h1>
+        <h1 style='text-align: center;'>🗝️ pile-SRI Version 2.6</h1>
         <p style='text-align: center; color: #6B5BFF; font-size: 14px;'>
         API RP 2GEO Full Compliance | Enhanced Features | Professional Tables
         </p>
@@ -175,7 +175,7 @@ def render_header():
     with col3:
         st.markdown("""
         <div style='text-align: right; padding: 10px;'>
-        <span class='status-badge status-good'>✅ v2.1</span>
+        <span class='status-badge status-good'>✅ v2.6</span>
         <span class='status-badge status-good'>API Table 1</span>
         <span class='status-badge status-good'>LRFD</span>
         </div>
@@ -1068,7 +1068,7 @@ def render_results(config, pile, profile):
             - **Project:** {config['project_name']}
             - **Designer:** {config['designer']}
             - **Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-            - **Software:** pile-SRI v2.1
+            - **Software:** pile-SRI v2.6
             
             ---
             
@@ -1150,7 +1150,7 @@ def render_results(config, pile, profile):
             
             ### PROFESSIONAL CERTIFICATION
             
-            This analysis was performed using **pile-SRI v2.1**, which implements:
+            This analysis was performed using **pile-SRI v2.6**, which implements:
             - Full API RP 2GEO Section 8 compliance
             - Industry-standard 5-point discretization
             - LRFD resistance factors
