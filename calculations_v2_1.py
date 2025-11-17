@@ -146,7 +146,9 @@ def discretize_tz_curve_5points(z_full: np.ndarray, t_full: np.ndarray) -> Dict:
     Returns dict with keys: t1-t5 (MN/m), z1-z5 (mm)
     """
     if len(z_full) == 0:
-        return {f't{i+1}': 0.0 for i in range(5)} | {f'z{i+1}': 0.0 for i in range(5)}
+        result = {f't{i+1}': 0.0 for i in range(5)}
+        result.update({f'z{i+1}': 0.0 for i in range(5)})
+        return result
 
     t_max = np.max(t_full)
 
@@ -171,7 +173,9 @@ def discretize_qz_curve_5points(z_full: np.ndarray, Q_full: np.ndarray) -> Dict:
     Returns dict with keys: q1-q5 (MN), z1-z5 (mm)
     """
     if len(z_full) == 0:
-        return {f'q{i+1}': 0.0 for i in range(5)} | {f'z{i+1}': 0.0 for i in range(5)}
+        result = {f'q{i+1}': 0.0 for i in range(5)}
+        result.update({f'z{i+1}': 0.0 for i in range(5)})
+        return result
 
     Q_max = np.max(Q_full)
 
@@ -198,7 +202,9 @@ def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
     Returns dict with keys: p1-p4 (kN/m), y1-y4 (mm)
     """
     if len(y_full) == 0:
-        return {f'p{i+1}': 0.0 for i in range(4)} | {f'y{i+1}': 0.0 for i in range(4)}
+        result = {f'p{i+1}': 0.0 for i in range(4)}
+        result.update({f'y{i+1}': 0.0 for i in range(4)})
+        return result
 
     p_max = np.max(p_full)
 
