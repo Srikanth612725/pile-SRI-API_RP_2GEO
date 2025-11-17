@@ -804,33 +804,33 @@ def render_results(config, pile, profile):
                 
                 tz_comp = results['tz_compression_table']
                 if not tz_comp.empty:
-                    # Plot
+                    # Plot (reshape from wide format) - show compression only
                     fig_tz = go.Figure()
-                    
-                    for depth in tz_comp['depth_m'].unique():
-                        df_depth = tz_comp[tz_comp['depth_m'] == depth]
+
+                    for _, row in tz_comp[tz_comp['Soil type'] == 'c'].iterrows():
+                        depth = row['Depth']
+                        # Extract z and t values from wide format (convert mm to m for plotting)
+                        z_vals = [row[f'z{i}']/1000 for i in range(1, 6)]  # mm to m
+                        t_vals = [row[f't{i}']*1000 for i in range(1, 6)]  # MN/m to kN/m
+
                         fig_tz.add_trace(go.Scatter(
-                            x=df_depth['z_m'],
-                            y=df_depth['t_kPa'],
-                            name=f"{depth:.0f}m",
+                            x=z_vals,
+                            y=t_vals,
+                            name=f"{depth:.1f}m",
                             mode='lines+markers',
                         ))
-                    
+
                     fig_tz.update_layout(
                         xaxis_title="Displacement (m)",
-                        yaxis_title="Unit Friction (kPa)",
+                        yaxis_title="Unit Friction (kN/m)",
                         height=400,
                         template='plotly_white'
                     )
                     st.plotly_chart(fig_tz, use_container_width=True)
-                    
-                    # Show 5-point table for selected depth
-                    depths_available = sorted(tz_comp['depth_m'].unique())
-                    selected_tz_depth = st.selectbox("View 5-point table at depth:", depths_available, key='tz_depth')
-                    
-                    df_show = tz_comp[tz_comp['depth_m'] == selected_tz_depth][['z_m', 't_kPa', 't_t_max_ratio']]
-                    df_show.columns = ['z (m)', 't (kPa)', 't/t_max']
-                    st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+                    # Display wide-format table
+                    st.markdown("**Format:** t values in MN/m, z values in mm | 'c'=compression, 't'=tension")
+                    st.dataframe(tz_comp, use_container_width=True, hide_index=True)
             
             # Q-z curve
             with col2:
@@ -838,16 +838,22 @@ def render_results(config, pile, profile):
                 
                 qz = results['qz_table']
                 if not qz.empty:
-                    # Plot
+                    # Plot (reshape from wide format)
                     fig_qz = go.Figure()
+
+                    # Extract z and q values from wide format (convert mm to m for plotting)
+                    row = qz.iloc[0]
+                    z_vals = [row[f'z{i}']/1000 for i in range(1, 6)]  # mm to m
+                    q_vals = [row[f'q{i}']*1000 for i in range(1, 6)]  # MN to kN
+
                     fig_qz.add_trace(go.Scatter(
-                        x=qz['z_m'],
-                        y=qz['Q_kN'],
+                        x=z_vals,
+                        y=q_vals,
                         mode='lines+markers',
                         line=dict(color='#10b981', width=3),
                         marker=dict(size=8),
                     ))
-                    
+
                     fig_qz.update_layout(
                         xaxis_title="Displacement (m)",
                         yaxis_title="End Bearing (kN)",
@@ -855,11 +861,10 @@ def render_results(config, pile, profile):
                         template='plotly_white'
                     )
                     st.plotly_chart(fig_qz, use_container_width=True)
-                    
-                    # Show 5-point table
-                    df_show = qz[['z_m', 'Q_kN', 'Q_Qp_ratio']]
-                    df_show.columns = ['z (m)', 'Q (kN)', 'Q/Qp']
-                    st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+                    # Display wide-format table
+                    st.markdown("**Format:** q values in MN, z values in mm | tip: 0=unplugged, 1=plugged")
+                    st.dataframe(qz, use_container_width=True, hide_index=True)
 
         # TAB 3: Lateral p-y curves
         with tab3:
@@ -868,36 +873,35 @@ def render_results(config, pile, profile):
                 
                 py_table = results['py_table']
                 if not py_table.empty:
-                    # Plot all depths
+                    # Plot all depths (reshape from wide format)
                     fig_py = go.Figure()
-                    
-                    for depth in sorted(py_table['depth_m'].unique()):
-                        df_depth = py_table[py_table['depth_m'] == depth]
+
+                    for _, row in py_table.iterrows():
+                        depth = row['Depth']
+                        # Extract y and p values from wide format (convert mm to m for plotting)
+                        y_vals = [row[f'y{i}']/1000 for i in range(1, 5)]  # mm to m
+                        p_vals = [row[f'p{i}'] for i in range(1, 5)]
+
                         fig_py.add_trace(go.Scatter(
-                            x=df_depth['y_m'],
-                            y=df_depth['p_kPa'],
-                            name=f"{depth:.0f}m",
+                            x=y_vals,
+                            y=p_vals,
+                            name=f"{depth:.1f}m",
                             mode='lines+markers',
                         ))
-                    
+
                     fig_py.update_layout(
                         xaxis_title="Lateral Displacement y (m)",
-                        yaxis_title="Lateral Resistance p (kPa)",
+                        yaxis_title="Lateral Resistance p (kN/m)",
                         height=500,
                         template='plotly_white'
                     )
                     st.plotly_chart(fig_py, use_container_width=True)
-                    
-                    # 5-point tables
+
+                    # Display wide-format table
                     st.markdown("---")
-                    st.markdown("### 📋 5-Point p-y Tables")
-                    
-                    depths_available = sorted(py_table['depth_m'].unique())
-                    selected_py_depth = st.selectbox("Select depth:", depths_available, key='py_depth')
-                    
-                    df_show = py_table[py_table['depth_m'] == selected_py_depth][['y_m', 'p_kPa', 'p_pu_ratio']]
-                    df_show.columns = ['y (m)', 'p (kPa)', 'p/pu']
-                    st.dataframe(df_show, use_container_width=True, hide_index=True)
+                    st.markdown("### 📋 4-Point p-y Table (Industry Standard)")
+                    st.markdown("**Format:** p values in kN/m, y values in mm")
+                    st.dataframe(py_table, use_container_width=True, hide_index=True)
             else:
                 st.info("Lateral analysis not selected. Enable in sidebar.")
 
