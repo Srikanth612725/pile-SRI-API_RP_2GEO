@@ -1097,8 +1097,8 @@ class LoadDisplacementTables:
         layer = profile.get_layer_at_depth(tip_depth_m)
         row['Soil type'] = layer.soil_type.value if layer else 'SAND'
 
-        # Determine if plugged (assuming plugged=1 for closed-end or when D/t > 20)
-        row['tip'] = 1 if pile.pile_type == PileType.CLOSED_END else 0
+        # Determine if plugged (plugged=1 for closed-end piles)
+        row['tip'] = 1 if pile.pile_type == PileType.DRIVEN_PIPE_CLOSED else 0
 
         # Reorder columns
         col_order = ['Depth', 'Soil type', 'tip']
