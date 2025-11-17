@@ -141,7 +141,7 @@ def discretize_tz_curve_5points(z_full: np.ndarray, t_full: np.ndarray) -> Dict:
     """
     Discretize t-z curve to industry-standard 5-point format (WIDE FORMAT).
 
-    Standard points: 0, 0.25, 0.50, 0.75, 1.0 of peak
+    Standard points: 0.10, 0.25, 0.50, 0.75, 1.0 of peak (skip zero point)
 
     Returns dict with keys: t1-t5 (MN/m), z1-z5 (mm)
     """
@@ -152,7 +152,8 @@ def discretize_tz_curve_5points(z_full: np.ndarray, t_full: np.ndarray) -> Dict:
 
     t_max = np.max(t_full)
 
-    target_ratios = [0.0, 0.25, 0.50, 0.75, 1.0]
+    # Skip zero point - use 5 meaningful discretization points
+    target_ratios = [0.10, 0.25, 0.50, 0.75, 1.0]
     result = {}
 
     for i, ratio in enumerate(target_ratios, start=1):
@@ -170,6 +171,8 @@ def discretize_qz_curve_5points(z_full: np.ndarray, Q_full: np.ndarray) -> Dict:
     """
     Discretize Q-z curve to industry-standard 5-point format (WIDE FORMAT).
 
+    Standard points: 0.10, 0.25, 0.50, 0.75, 1.0 of peak (skip zero point)
+
     Returns dict with keys: q1-q5 (MN), z1-z5 (mm)
     """
     if len(z_full) == 0:
@@ -179,7 +182,8 @@ def discretize_qz_curve_5points(z_full: np.ndarray, Q_full: np.ndarray) -> Dict:
 
     Q_max = np.max(Q_full)
 
-    target_ratios = [0.0, 0.25, 0.50, 0.75, 1.0]
+    # Skip zero point - use 5 meaningful discretization points
+    target_ratios = [0.10, 0.25, 0.50, 0.75, 1.0]
     result = {}
 
     for i, ratio in enumerate(target_ratios, start=1):
@@ -197,7 +201,7 @@ def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
     """
     Discretize p-y curve to industry-standard 4-point format (WIDE FORMAT).
 
-    Standard points: 0, 0.33, 0.67, 1.0 of peak
+    Standard points: 0.25, 0.50, 0.75, 1.0 of peak (skip zero point)
 
     Returns dict with keys: p1-p4 (kN/m), y1-y4 (mm)
     """
@@ -208,7 +212,8 @@ def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
 
     p_max = np.max(p_full)
 
-    target_ratios = [0.0, 0.33, 0.67, 1.0]
+    # Skip zero point - use 4 meaningful discretization points
+    target_ratios = [0.25, 0.50, 0.75, 1.0]
     result = {}
 
     for i, ratio in enumerate(target_ratios, start=1):
@@ -1042,9 +1047,15 @@ class LoadDisplacementTables:
         Units: q in MN, z in mm
         tip: 0=unplugged, 1=plugged
         """
+        # Ensure tip depth is within valid range
+        if tip_depth_m <= 0:
+            cols = ['Depth', 'Soil type', 'tip'] + [f'{x}{i+1}' for x in ['q', 'z'] for i in range(5)]
+            return pd.DataFrame(columns=cols)
+
         z_disp, Q_resist = LoadDisplacementTables.qz_curve(tip_depth_m, profile, pile)
 
         if len(z_disp) == 0:
+            # Return empty DataFrame with proper columns
             cols = ['Depth', 'Soil type', 'tip'] + [f'{x}{i+1}' for x in ['q', 'z'] for i in range(5)]
             return pd.DataFrame(columns=cols)
 
@@ -1123,9 +1134,10 @@ class PileDesignAnalysis:
         results['tz_compression_table'] = tz_table
         results['tz_tension_table'] = tz_table
         
-        # Q-z table
+        # Q-z table (at pile tip, not max_depth_m)
+        pile_tip_depth = self.pile.length_m if self.pile.length_m > 0 else max_depth_m
         results['qz_table'] = LoadDisplacementTables.generate_qz_table(
-            self.profile, self.pile, max_depth_m
+            self.profile, self.pile, pile_tip_depth
         )
         
         # p-y table
