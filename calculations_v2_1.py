@@ -739,14 +739,26 @@ class AxialCapacity:
 
         for z in depths:
             result = cls.total_capacity_layered(profile, pile, z, loading_type, resistance_factor)
-            
+
             layer = profile.get_layer_at_depth(z)
-            
+
+            # Calculate instantaneous unit friction at this depth (not average)
+            for_tension = (loading_type == LoadingType.TENSION)
+            if layer and z > 0:
+                if layer.soil_type in [SoilType.CLAY, SoilType.SILT]:
+                    unit_friction_at_depth = cls.clay_shaft_friction(z, profile, pile, for_tension)
+                elif layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
+                    unit_friction_at_depth = cls.sand_shaft_friction(z, profile, pile, for_tension)
+                else:
+                    unit_friction_at_depth = 0.0
+            else:
+                unit_friction_at_depth = 0.0
+
             results_list.append({
                 'depth_m': z,
                 'layer': layer.name if layer else "N/A",
                 'soil_type': layer.soil_type.value if layer else "N/A",
-                'unit_friction_kPa': result['shaft_friction_kN'] / (np.pi * pile.diameter_m * z + 0.001),
+                'unit_friction_kPa': unit_friction_at_depth,
                 'cumulative_friction_kN': result['shaft_friction_kN'],
                 'end_bearing_kPa': result['end_bearing_kN'] / pile.area_gross_m2 if pile.area_gross_m2 > 0 else 0,
                 'total_capacity_kN': result['total_capacity_kN'],
