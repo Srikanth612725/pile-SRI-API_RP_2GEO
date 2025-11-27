@@ -43,20 +43,23 @@ def test_discretization_functions():
 def test_basic_calculations():
     """Test basic calculation functionality."""
     from calculations_v2_1 import (
-        SoilType, PileType, SoilLayer, PileProperties, SoilProfile
+        SoilType, PileType, SoilLayer, PileProperties, SoilProfile, SoilPoint
     )
 
     # Create a simple test case
     layer = SoilLayer(
         name="Test Sand",
         soil_type=SoilType.SAND,
-        top_depth_m=0.0,
-        thickness_m=20.0,
-        gamma_kN_m3=18.0,
-        phi_degrees=35.0
+        depth_top_m=0.0,
+        depth_bot_m=20.0,
+        gamma_prime_kNm3=[SoilPoint(0.0, 8.0)],
+        phi_prime_deg=[SoilPoint(0.0, 35.0)]
     )
 
-    profile = SoilProfile([layer])
+    profile = SoilProfile(
+        site_name="Test Site",
+        layers=[layer]
+    )
     assert len(profile.layers) == 1
 
     pile = PileProperties(

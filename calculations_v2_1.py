@@ -222,6 +222,7 @@ def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
     Discretize p-y curve to industry-standard 4-point format (WIDE FORMAT).
 
     Standard points: 0.25, 0.50, 0.75, 1.0 of peak (skip zero point)
+    Uses interpolation for accurate discretization.
 
     Returns dict with keys: p1-p4 (kN/m), y1-y4 (mm)
     """
@@ -231,7 +232,7 @@ def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
         return result
 
     # Remove zero point if it exists (first point is often 0,0)
-    if len(y_full) > 1 and y_full[0] == 0.0 and p_full[0] == 0.0:
+    if len(y_full) > 1 and np.abs(y_full[0]) < 1e-10 and np.abs(p_full[0]) < 1e-10:
         y_full = y_full[1:]
         p_full = p_full[1:]
 
@@ -242,17 +243,37 @@ def discretize_py_curve_4points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
 
     p_max = np.max(p_full)
 
+    # If all p values are the same or p_max is too small, return zeros
+    if p_max <= 1e-6 or np.allclose(p_full, p_full[0]):
+        result = {f'p{i+1}': 0.0 for i in range(4)}
+        result.update({f'y{i+1}': 0.0 for i in range(4)})
+        return result
+
     # Use 4 meaningful discretization points
     target_ratios = [0.25, 0.50, 0.75, 1.0]
     result = {}
 
+    # Check if curve is monotonically increasing (p should increase with y for p-y curves)
+    # If not monotonic, sort by p to enable interpolation
+    if not np.all(np.diff(p_full) >= 0):
+        # Sort by p values for interpolation
+        sort_idx = np.argsort(p_full)
+        p_sorted = p_full[sort_idx]
+        y_sorted = y_full[sort_idx]
+    else:
+        p_sorted = p_full
+        y_sorted = y_full
+
     for i, ratio in enumerate(target_ratios, start=1):
         target_p = ratio * p_max
-        idx = np.argmin(np.abs(p_full - target_p))
+
+        # Use interpolation to find exact y value at target_p
+        # np.interp requires x (p_sorted) to be monotonically increasing
+        y_interp = np.interp(target_p, p_sorted, y_sorted)
 
         # Convert units: p stays in kN/m, y from m to mm
-        result[f'p{i}'] = p_full[idx]  # Already in kN/m
-        result[f'y{i}'] = y_full[idx] * 1000.0  # m to mm
+        result[f'p{i}'] = target_p  # Exact target value
+        result[f'y{i}'] = y_interp * 1000.0  # m to mm
 
     return result
 
@@ -718,14 +739,26 @@ class AxialCapacity:
 
         for z in depths:
             result = cls.total_capacity_layered(profile, pile, z, loading_type, resistance_factor)
-            
+
             layer = profile.get_layer_at_depth(z)
-            
+
+            # Calculate instantaneous unit friction at this depth (not average)
+            for_tension = (loading_type == LoadingType.TENSION)
+            if layer and z > 0:
+                if layer.soil_type in [SoilType.CLAY, SoilType.SILT]:
+                    unit_friction_at_depth = cls.clay_shaft_friction(z, profile, pile, for_tension)
+                elif layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
+                    unit_friction_at_depth = cls.sand_shaft_friction(z, profile, pile, for_tension)
+                else:
+                    unit_friction_at_depth = 0.0
+            else:
+                unit_friction_at_depth = 0.0
+
             results_list.append({
                 'depth_m': z,
                 'layer': layer.name if layer else "N/A",
                 'soil_type': layer.soil_type.value if layer else "N/A",
-                'unit_friction_kPa': result['shaft_friction_kN'] / (np.pi * pile.diameter_m * z + 0.001),
+                'unit_friction_kPa': unit_friction_at_depth,
                 'cumulative_friction_kN': result['shaft_friction_kN'],
                 'end_bearing_kPa': result['end_bearing_kN'] / pile.area_gross_m2 if pile.area_gross_m2 > 0 else 0,
                 'total_capacity_kN': result['total_capacity_kN'],
@@ -1167,7 +1200,10 @@ class PileDesignAnalysis:
         
         # t-z tables (wide format includes both compression and tension)
         if tz_depths is None:
-            tz_depths = np.arange(5, max_depth_m, 5).tolist()
+            tz_depths = np.arange(5, max_depth_m + 0.1, 5).tolist()
+            # Ensure we have at least one depth
+            if not tz_depths:
+                tz_depths = [min(5.0, max_depth_m)]
 
         tz_table = LoadDisplacementTables.generate_tz_table(
             self.profile, self.pile, tz_depths
@@ -1186,6 +1222,22 @@ class PileDesignAnalysis:
             if pile_tip_depth not in qz_depths and pile_tip_depth > 0:
                 qz_depths.append(pile_tip_depth)
                 qz_depths = sorted(qz_depths)
+        # Q-z table (generate at multiple depths matching t-z depths)
+        if qz_depths is None:
+            # Use same depth intervals as t-z for consistency
+            qz_depths = np.arange(5, max_depth_m + 0.1, 5).tolist()
+
+            # Ensure we have at least one depth
+            if not qz_depths:
+                qz_depths = [min(5.0, max_depth_m)]
+
+            # Also include the pile tip depth if it's within range and different
+            pile_tip_depth = self.pile.length_m if self.pile.length_m > 0 else max_depth_m
+            if pile_tip_depth > 0 and pile_tip_depth <= max_depth_m:
+                # Add pile tip if not already in list (within 0.5m tolerance)
+                if not any(abs(d - pile_tip_depth) < 0.5 for d in qz_depths):
+                    qz_depths.append(pile_tip_depth)
+                    qz_depths = sorted(qz_depths)
 
         results['qz_table'] = LoadDisplacementTables.generate_qz_table(
             self.profile, self.pile, qz_depths
@@ -1193,7 +1245,10 @@ class PileDesignAnalysis:
         
         # p-y table
         if py_depths is None:
-            py_depths = np.arange(5, max_depth_m, 5).tolist()
+            py_depths = np.arange(5, max_depth_m + 0.1, 5).tolist()
+            # Ensure we have at least one depth
+            if not py_depths:
+                py_depths = [min(5.0, max_depth_m)]
         
         results['py_table'] = LateralCapacity.generate_py_table(
             self.profile, self.pile, py_depths, analysis_type
