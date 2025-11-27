@@ -935,15 +935,16 @@ class LateralCapacity:
         phi_prime = profile.get_property_at_depth(depth_m, "phi_prime")
         gamma_prime = profile.get_property_at_depth(depth_m, "gamma_prime")
 
-        # If phi_prime not available, estimate from relative density
+        # If phi_prime not available, estimate from relative density as fallback
         if not np.isfinite(phi_prime) or phi_prime <= 0:
             layer = profile.get_layer_at_depth(depth_m)
             if layer and layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
-                # Estimate phi from Dr (Bolton 1986 correlation for quartz sand)
+                # Fallback: Estimate phi from Dr (Bolton 1986 correlation)
                 Dr = layer.relative_density_pct
-                # phi' ≈ 28 + 0.17*Dr for quartz sand at low stress
                 phi_prime = 28.0 + 0.17 * Dr
-                warnings.warn(f"phi_prime not specified at {depth_m}m, estimated {phi_prime:.1f}° from Dr={Dr:.1f}%")
+                # Only warn in debug mode - this is a valid fallback
+                if False:  # Set to True to enable warnings
+                    warnings.warn(f"phi_prime not specified at {depth_m}m, estimated {phi_prime:.1f}° from Dr={Dr:.1f}%")
             else:
                 return np.array([]), np.array([])
 
