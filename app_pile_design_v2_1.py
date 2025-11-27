@@ -733,9 +733,44 @@ def create_capacity_plots(results: Dict, config: Dict):
     return fig
 
 
+def format_table_display(df: pd.DataFrame, table_type: str = 'tz') -> pd.DataFrame:
+    """Format dataframe for display with proper decimal places."""
+    if df.empty:
+        return df
+
+    # Create format dictionary
+    format_dict = {}
+
+    if table_type == 'tz':
+        # t values: 4 decimals (MN/m), z values: 4 decimals (mm)
+        for i in range(1, 9):
+            format_dict[f't{i}'] = '{:.4f}'
+            format_dict[f'z{i}'] = '{:.4f}'
+        if 'Depth' in df.columns:
+            format_dict['Depth'] = '{:.1f}'
+    elif table_type == 'qz':
+        # q values: 4 decimals (MN), z values: 4 decimals (mm)
+        for i in range(1, 9):
+            format_dict[f'q{i}'] = '{:.4f}'
+            format_dict[f'z{i}'] = '{:.4f}'
+        if 'Depth' in df.columns:
+            format_dict['Depth'] = '{:.1f}'
+        if 'tip' in df.columns:
+            format_dict['tip'] = '{:.0f}'
+    elif table_type == 'py':
+        # p values: 2 decimals (kN/m), y values: 4 decimals (mm)
+        for i in range(1, 9):
+            format_dict[f'p{i}'] = '{:.2f}'
+            format_dict[f'y{i}'] = '{:.4f}'
+        if 'Depth' in df.columns:
+            format_dict['Depth'] = '{:.1f}'
+
+    return df.style.format(format_dict)
+
+
 def render_results(config, pile, profile):
-    """Render comprehensive v2.1 results."""
-    
+    """Render comprehensive v2.6.1 results."""
+
     # Run analysis
     analysis = PileDesignAnalysis(profile, pile)
     
@@ -880,9 +915,10 @@ def render_results(config, pile, profile):
                                                     showline=True, linewidth=2, linecolor='black')
                             st.plotly_chart(fig_tz_comp, use_container_width=True)
 
-                            # Display compression table only
+                            # Display compression table with formatting
                             st.markdown("**Format:** t values in MN/m, z values in mm | 8 points per curve")
-                            st.dataframe(compression_rows.drop(columns=['Soil type']), use_container_width=True, hide_index=True)
+                            formatted_comp = format_table_display(compression_rows.drop(columns=['Soil type']), 'tz')
+                            st.dataframe(formatted_comp, use_container_width=True, hide_index=True)
                         else:
                             st.info("No compression t-z data available.")
 
@@ -917,9 +953,10 @@ def render_results(config, pile, profile):
                                                     showline=True, linewidth=2, linecolor='black')
                             st.plotly_chart(fig_tz_tens, use_container_width=True)
 
-                            # Display tension table only
+                            # Display tension table with formatting
                             st.markdown("**Format:** t values in MN/m, z values in mm | 8 points per curve")
-                            st.dataframe(tension_rows.drop(columns=['Soil type']), use_container_width=True, hide_index=True)
+                            formatted_tens = format_table_display(tension_rows.drop(columns=['Soil type']), 'tz')
+                            st.dataframe(formatted_tens, use_container_width=True, hide_index=True)
                         else:
                             st.info("No tension t-z data available.")
                 else:
@@ -963,9 +1000,10 @@ def render_results(config, pile, profile):
                                        showline=True, linewidth=2, linecolor='black')
                     st.plotly_chart(fig_qz, use_container_width=True)
 
-                    # Display wide-format table
+                    # Display wide-format table with formatting
                     st.markdown("**Format:** q values in MN, z values in mm | tip: 0=unplugged, 1=plugged | 8 points per curve")
-                    st.dataframe(qz, use_container_width=True, hide_index=True)
+                    formatted_qz = format_table_display(qz, 'qz')
+                    st.dataframe(formatted_qz, use_container_width=True, hide_index=True)
                 else:
                     st.warning(f"⚠️ No Q-z data available. Debug info:\n\n"
                               f"- Pile length: {pile.length_m:.1f} m\n"
@@ -1017,7 +1055,8 @@ def render_results(config, pile, profile):
                     st.markdown("---")
                     st.markdown("### 📋 8-Point p-y Table (Enhanced v2.6.1)")
                     st.markdown("**Format:** p values in kN/m, y values in mm | 8 points per curve")
-                    st.dataframe(py_table, use_container_width=True, hide_index=True)
+                    formatted_py = format_table_display(py_table, 'py')
+                    st.dataframe(formatted_py, use_container_width=True, hide_index=True)
                 else:
                     st.info("No p-y data available for selected configuration.")
             else:
