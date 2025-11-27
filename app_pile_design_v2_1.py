@@ -1,13 +1,22 @@
 """
-app_pile_design_v2_1.py - pile-SRI Application v2.1
-====================================================
+app_pile_design_v2_1.py - pile-SRI Application v2.6.1
+======================================================
 
 Professional-grade Streamlit application for offshore pile foundation design
-following API RP 2GEO standards with v2.1 enhancements.
+following API RP 2GEO standards with v2.6.1 enhancements.
 
-NEW in v2.1:
+NEW in v2.6.1:
+- ✅ CRITICAL: Fixed limiting capacity enforcement (f_L, q_L per API Table 1)
+- ✅ Enhanced 8-point table discretization (t-z, Q-z, p-y)
+- ✅ User-configurable depth intervals (1m default)
+- ✅ Separate compression/tension t-z tables
+- ✅ Instantaneous unit friction calculation
+- ✅ Complete API Table 1 with all soil types
+- ✅ Professional gridlines on all plots
+- ✅ Improved light mode support
+
+Previous features:
 - Extended API Table 1 implementation
-- 5-point industry-standard tables
 - LRFD/ASD toggle
 - Compression vs Tension analysis
 - Layer-by-layer capacity tracking
@@ -19,7 +28,7 @@ Run with: streamlit run app_pile_design_v2_1.py
 
 Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.
 Author: Dr. Chitti S S U Srikanth
-Version: 2.1.0
+Version: 2.6.1
 """
 
 import streamlit as st
@@ -52,7 +61,7 @@ except ImportError:
 # ============================================================================
 
 st.set_page_config(
-    page_title="pile-SRI v2.6 · API RP 2GEO",
+    page_title="pile-SRI v2.6.1 · API RP 2GEO",
     page_icon="🗝️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -166,16 +175,16 @@ def render_header():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
-        <h1 style='text-align: center;'>🗝️ pile-SRI Version 2.6</h1>
+        <h1 style='text-align: center;'>🗝️ pile-SRI Version 2.6.1</h1>
         <p style='text-align: center; color: #6B5BFF; font-size: 14px;'>
-        API RP 2GEO Full Compliance | Enhanced Features | Professional Tables
+        API RP 2GEO Full Compliance | 8-Point Tables | Limiting Capacities Fixed
         </p>
         """, unsafe_allow_html=True)
-    
+
     with col3:
         st.markdown("""
         <div style='text-align: right; padding: 10px;'>
-        <span class='status-badge status-good'>✅ v2.6</span>
+        <span class='status-badge status-good'>✅ v2.6.1</span>
         <span class='status-badge status-good'>API Table 1</span>
         <span class='status-badge status-good'>LRFD</span>
         </div>
@@ -229,10 +238,18 @@ def render_sidebar() -> Dict:
 
         st.markdown("---")
         st.markdown("## 📊 COMPUTATION")
-        
+
         max_depth = st.number_input("Max Analysis Depth (m)", 10, 200, 50, 5)
         dz = st.slider("Depth Increment (m)", 0.1, 2.0, 0.5, 0.1)
-        
+
+        # NEW in v2.6.1: Depth interval for tables
+        depth_interval = st.selectbox(
+            "Table Depth Interval (m)",
+            options=[0.5, 1.0, 2.0, 5.0],
+            index=1,  # Default to 1.0m
+            help="Spacing between depths in t-z, Q-z, and p-y tables (8 points per curve)"
+        )
+
         # NEW: Customizable table depths
         with st.expander("🔧 Advanced Options"):
             auto_depths = st.checkbox("Auto-generate depths", value=True)
@@ -261,6 +278,7 @@ def render_sidebar() -> Dict:
             "loading_condition": loading_condition,
             "max_depth": max_depth,
             "depth_increment": dz,
+            "depth_interval": depth_interval,  # NEW in v2.6.1
             "tz_depths": tz_depths if not auto_depths else None,
             "py_depths": py_depths if not auto_depths else None,
         }
@@ -691,6 +709,27 @@ def create_capacity_plots(results: Dict, config: Dict):
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
 
+    # Add gridlines (v2.6.1)
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray',
+        showline=True,
+        linewidth=2,
+        linecolor='black',
+        mirror=True
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray',
+        showline=True,
+        linewidth=2,
+        linecolor='black',
+        mirror=True
+    )
+
     return fig
 
 
@@ -706,6 +745,7 @@ def render_results(config, pile, profile):
         results = analysis.run_complete_analysis(
             max_depth_m=config['max_depth'],
             dz=config['depth_increment'],
+            depth_interval=config['depth_interval'],  # NEW in v2.6.1
             tz_depths=config['tz_depths'],
             py_depths=config['py_depths'],
             analysis_type=analysis_type,
