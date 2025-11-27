@@ -1,13 +1,22 @@
 """
-app_pile_design_v2_1.py - pile-SRI Application v2.1
-====================================================
+app_pile_design_v2_1.py - pile-SRI Application v2.6.1
+======================================================
 
 Professional-grade Streamlit application for offshore pile foundation design
-following API RP 2GEO standards with v2.1 enhancements.
+following API RP 2GEO standards with v2.6.1 enhancements.
 
-NEW in v2.1:
+NEW in v2.6.1:
+- ✅ CRITICAL: Fixed limiting capacity enforcement (f_L, q_L per API Table 1)
+- ✅ Enhanced 8-point table discretization (t-z, Q-z, p-y)
+- ✅ User-configurable depth intervals (1m default)
+- ✅ Separate compression/tension t-z tables
+- ✅ Instantaneous unit friction calculation
+- ✅ Complete API Table 1 with all soil types
+- ✅ Professional gridlines on all plots
+- ✅ Improved light mode support
+
+Previous features:
 - Extended API Table 1 implementation
-- 5-point industry-standard tables
 - LRFD/ASD toggle
 - Compression vs Tension analysis
 - Layer-by-layer capacity tracking
@@ -19,7 +28,7 @@ Run with: streamlit run app_pile_design_v2_1.py
 
 Copyright (c) 2025 Dr. Chitti S S U Srikanth. All rights reserved.
 Author: Dr. Chitti S S U Srikanth
-Version: 2.1.0
+Version: 2.6.1
 """
 
 import streamlit as st
@@ -52,7 +61,7 @@ except ImportError:
 # ============================================================================
 
 st.set_page_config(
-    page_title="pile-SRI v2.6 · API RP 2GEO",
+    page_title="pile-SRI v2.6.1 · API RP 2GEO",
     page_icon="🗝️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -166,16 +175,16 @@ def render_header():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
-        <h1 style='text-align: center;'>🗝️ pile-SRI Version 2.6</h1>
+        <h1 style='text-align: center;'>🗝️ pile-SRI Version 2.6.1</h1>
         <p style='text-align: center; color: #6B5BFF; font-size: 14px;'>
-        API RP 2GEO Full Compliance | Enhanced Features | Professional Tables
+        API RP 2GEO Full Compliance | 8-Point Tables | Limiting Capacities Fixed
         </p>
         """, unsafe_allow_html=True)
-    
+
     with col3:
         st.markdown("""
         <div style='text-align: right; padding: 10px;'>
-        <span class='status-badge status-good'>✅ v2.6</span>
+        <span class='status-badge status-good'>✅ v2.6.1</span>
         <span class='status-badge status-good'>API Table 1</span>
         <span class='status-badge status-good'>LRFD</span>
         </div>
@@ -229,10 +238,18 @@ def render_sidebar() -> Dict:
 
         st.markdown("---")
         st.markdown("## 📊 COMPUTATION")
-        
+
         max_depth = st.number_input("Max Analysis Depth (m)", 10, 200, 50, 5)
         dz = st.slider("Depth Increment (m)", 0.1, 2.0, 0.5, 0.1)
-        
+
+        # NEW in v2.6.1: Depth interval for tables
+        depth_interval = st.selectbox(
+            "Table Depth Interval (m)",
+            options=[0.5, 1.0, 2.0, 5.0],
+            index=1,  # Default to 1.0m
+            help="Spacing between depths in t-z, Q-z, and p-y tables (8 points per curve)"
+        )
+
         # NEW: Customizable table depths
         with st.expander("🔧 Advanced Options"):
             auto_depths = st.checkbox("Auto-generate depths", value=True)
@@ -261,6 +278,7 @@ def render_sidebar() -> Dict:
             "loading_condition": loading_condition,
             "max_depth": max_depth,
             "depth_increment": dz,
+            "depth_interval": depth_interval,  # NEW in v2.6.1
             "tz_depths": tz_depths if not auto_depths else None,
             "py_depths": py_depths if not auto_depths else None,
         }
@@ -691,6 +709,27 @@ def create_capacity_plots(results: Dict, config: Dict):
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
 
+    # Add gridlines (v2.6.1)
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray',
+        showline=True,
+        linewidth=2,
+        linecolor='black',
+        mirror=True
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray',
+        showline=True,
+        linewidth=2,
+        linecolor='black',
+        mirror=True
+    )
+
     return fig
 
 
@@ -706,6 +745,7 @@ def render_results(config, pile, profile):
         results = analysis.run_complete_analysis(
             max_depth_m=config['max_depth'],
             dz=config['depth_increment'],
+            depth_interval=config['depth_interval'],  # NEW in v2.6.1
             tz_depths=config['tz_depths'],
             py_depths=config['py_depths'],
             analysis_type=analysis_type,
@@ -807,32 +847,81 @@ def render_results(config, pile, profile):
                     # Plot (reshape from wide format) - show compression only
                     fig_tz = go.Figure()
 
-                    compression_rows = tz_comp[tz_comp['Soil type'] == 'c']
-                    if not compression_rows.empty:
-                        for _, row in compression_rows.iterrows():
-                            depth = row['Depth']
-                            # Extract z and t values from wide format (convert mm to m for plotting)
-                            z_vals = [row[f'z{i}']/1000 for i in range(1, 6)]  # mm to m
-                            t_vals = [row[f't{i}']*1000 for i in range(1, 6)]  # MN/m to kN/m
+                    # v2.6.1: Display compression and tension in separate tabs
+                    tab_comp, tab_tens = st.tabs(["Compression", "Tension"])
 
-                            fig_tz.add_trace(go.Scatter(
-                                x=z_vals,
-                                y=t_vals,
-                                name=f"{depth:.1f}m",
-                                mode='lines+markers',
-                            ))
+                    with tab_comp:
+                        compression_rows = tz_comp[tz_comp['Soil type'] == 'c']
+                        if not compression_rows.empty:
+                            fig_tz_comp = go.Figure()
+                            for _, row in compression_rows.iterrows():
+                                depth = row['Depth']
+                                # Extract z and t values from wide format - 8 points now
+                                z_vals = [row[f'z{i}']/1000 for i in range(1, 9)]  # mm to m (8 points)
+                                t_vals = [row[f't{i}']*1000 for i in range(1, 9)]  # MN/m to kN/m (8 points)
 
-                        fig_tz.update_layout(
-                            xaxis_title="Displacement (m)",
-                            yaxis_title="Unit Friction (kN/m)",
-                            height=400,
-                            template='plotly_white'
-                        )
-                        st.plotly_chart(fig_tz, use_container_width=True)
+                                fig_tz_comp.add_trace(go.Scatter(
+                                    x=z_vals,
+                                    y=t_vals,
+                                    name=f"{depth:.1f}m",
+                                    mode='lines+markers',
+                                ))
 
-                    # Display wide-format table
-                    st.markdown("**Format:** t values in MN/m, z values in mm | 'c'=compression, 't'=tension")
-                    st.dataframe(tz_comp, use_container_width=True, hide_index=True)
+                            fig_tz_comp.update_layout(
+                                xaxis_title="Displacement (m)",
+                                yaxis_title="Unit Friction (kN/m)",
+                                height=400,
+                                template='plotly_white'
+                            )
+                            # Add gridlines
+                            fig_tz_comp.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                                    showline=True, linewidth=2, linecolor='black')
+                            fig_tz_comp.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                                    showline=True, linewidth=2, linecolor='black')
+                            st.plotly_chart(fig_tz_comp, use_container_width=True)
+
+                            # Display compression table only
+                            st.markdown("**Format:** t values in MN/m, z values in mm | 8 points per curve")
+                            st.dataframe(compression_rows.drop(columns=['Soil type']), use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No compression t-z data available.")
+
+                    with tab_tens:
+                        tz_tens = results['tz_tension_table']
+                        tension_rows = tz_tens[tz_tens['Soil type'] == 't']
+                        if not tension_rows.empty:
+                            fig_tz_tens = go.Figure()
+                            for _, row in tension_rows.iterrows():
+                                depth = row['Depth']
+                                # Extract z and t values from wide format - 8 points now
+                                z_vals = [row[f'z{i}']/1000 for i in range(1, 9)]  # mm to m (8 points)
+                                t_vals = [row[f't{i}']*1000 for i in range(1, 9)]  # MN/m to kN/m (8 points)
+
+                                fig_tz_tens.add_trace(go.Scatter(
+                                    x=z_vals,
+                                    y=t_vals,
+                                    name=f"{depth:.1f}m",
+                                    mode='lines+markers',
+                                ))
+
+                            fig_tz_tens.update_layout(
+                                xaxis_title="Displacement (m)",
+                                yaxis_title="Unit Friction (kN/m)",
+                                height=400,
+                                template='plotly_white'
+                            )
+                            # Add gridlines
+                            fig_tz_tens.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                                    showline=True, linewidth=2, linecolor='black')
+                            fig_tz_tens.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                                    showline=True, linewidth=2, linecolor='black')
+                            st.plotly_chart(fig_tz_tens, use_container_width=True)
+
+                            # Display tension table only
+                            st.markdown("**Format:** t values in MN/m, z values in mm | 8 points per curve")
+                            st.dataframe(tension_rows.drop(columns=['Soil type']), use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No tension t-z data available.")
                 else:
                     st.info("No t-z data available for selected configuration.")
             
@@ -845,18 +934,21 @@ def render_results(config, pile, profile):
                     # Plot (reshape from wide format)
                     fig_qz = go.Figure()
 
-                    # Extract z and q values from wide format (convert mm to m for plotting)
-                    row = qz.iloc[0]
-                    z_vals = [row[f'z{i}']/1000 for i in range(1, 6)]  # mm to m
-                    q_vals = [row[f'q{i}']*1000 for i in range(1, 6)]  # MN to kN
+                    # Plot all depths in Q-z table
+                    for _, row in qz.iterrows():
+                        depth = row['Depth']
+                        # Extract z and q values from wide format - 8 points now
+                        z_vals = [row[f'z{i}']/1000 for i in range(1, 9)]  # mm to m (8 points)
+                        q_vals = [row[f'q{i}']*1000 for i in range(1, 9)]  # MN to kN (8 points)
 
-                    fig_qz.add_trace(go.Scatter(
-                        x=z_vals,
-                        y=q_vals,
-                        mode='lines+markers',
-                        line=dict(color='#10b981', width=3),
-                        marker=dict(size=8),
-                    ))
+                        fig_qz.add_trace(go.Scatter(
+                            x=z_vals,
+                            y=q_vals,
+                            name=f"{depth:.1f}m",
+                            mode='lines+markers',
+                            line=dict(width=2),
+                            marker=dict(size=6),
+                        ))
 
                     fig_qz.update_layout(
                         xaxis_title="Displacement (m)",
@@ -864,10 +956,15 @@ def render_results(config, pile, profile):
                         height=400,
                         template='plotly_white'
                     )
+                    # Add gridlines
+                    fig_qz.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                       showline=True, linewidth=2, linecolor='black')
+                    fig_qz.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                       showline=True, linewidth=2, linecolor='black')
                     st.plotly_chart(fig_qz, use_container_width=True)
 
                     # Display wide-format table
-                    st.markdown("**Format:** q values in MN, z values in mm | tip: 0=unplugged, 1=plugged")
+                    st.markdown("**Format:** q values in MN, z values in mm | tip: 0=unplugged, 1=plugged | 8 points per curve")
                     st.dataframe(qz, use_container_width=True, hide_index=True)
                 else:
                     st.warning(f"⚠️ No Q-z data available. Debug info:\n\n"
@@ -892,9 +989,9 @@ def render_results(config, pile, profile):
 
                     for _, row in py_table.iterrows():
                         depth = row['Depth']
-                        # Extract y and p values from wide format (convert mm to m for plotting)
-                        y_vals = [row[f'y{i}']/1000 for i in range(1, 5)]  # mm to m
-                        p_vals = [row[f'p{i}'] for i in range(1, 5)]
+                        # Extract y and p values from wide format - 8 points now
+                        y_vals = [row[f'y{i}']/1000 for i in range(1, 9)]  # mm to m (8 points)
+                        p_vals = [row[f'p{i}'] for i in range(1, 9)]  # 8 points
 
                         fig_py.add_trace(go.Scatter(
                             x=y_vals,
@@ -909,12 +1006,17 @@ def render_results(config, pile, profile):
                         height=500,
                         template='plotly_white'
                     )
+                    # Add gridlines
+                    fig_py.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                       showline=True, linewidth=2, linecolor='black')
+                    fig_py.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
+                                       showline=True, linewidth=2, linecolor='black')
                     st.plotly_chart(fig_py, use_container_width=True)
 
                     # Display wide-format table
                     st.markdown("---")
-                    st.markdown("### 📋 4-Point p-y Table (Industry Standard)")
-                    st.markdown("**Format:** p values in kN/m, y values in mm")
+                    st.markdown("### 📋 8-Point p-y Table (Enhanced v2.6.1)")
+                    st.markdown("**Format:** p values in kN/m, y values in mm | 8 points per curve")
                     st.dataframe(py_table, use_container_width=True, hide_index=True)
                 else:
                     st.info("No p-y data available for selected configuration.")
