@@ -1,0 +1,93 @@
+Design Summary Report
+PROJECT INFORMATION
+Project: Offshore Platform Foundation
+Designer: Engineering Team
+Date: 2025-11-28 09:15:20
+Software: pile-SRI v2.6
+PILE PROPERTIES
+Diameter: 1.000 m
+Wall Thickness: 0.0500 m
+Embedded Length: 40.0 m
+Type: driven_pipe_open
+Gross Area: 0.7854 m²
+SOIL PROFILE
+Site: Offshore Site
+Water Depth: 50 m
+Number of Layers: 6
+Layers:
+1. Layer 1 (sand)
+
+Depth: 0.0 - 4.5 m
+Relative Density: 20% (loose)
+Carbonate Content: 65%
+Cemented: No
+2. Layer 2 (clay)
+
+Depth: 4.5 - 9.0 m
+Relative Density: 50% (medium dense)
+Carbonate Content: 60%
+Cemented: No
+3. Layer 3 (sand-silt)
+
+Depth: 9.0 - 10.5 m
+Relative Density: 50% (medium dense)
+Carbonate Content: 65%
+Cemented: No
+4. Layer 4 (clay)
+
+Depth: 10.5 - 15.0 m
+Relative Density: 50% (medium dense)
+Carbonate Content: 60%
+Cemented: No
+5. Layer 5 (sand-silt)
+
+Depth: 15.0 - 36.0 m
+Relative Density: 80% (dense)
+Carbonate Content: 70%
+Cemented: No
+6. Layer 6 (clay)
+
+Depth: 36.0 - 41.0 m
+Relative Density: 50% (medium dense)
+Carbonate Content: 65%
+Cemented: No
+ANALYSIS PARAMETERS
+Design Method: ASD (SF=2.5)
+Analysis Types: Compression, Tension, Lateral
+Loading Condition: Static
+Max Depth: 40 m
+Depth Increment: 0.2 m
+CAPACITY RESULTS
+Compression
+Maximum Capacity: 10,145 kN
+At Depth: 35.8 m
+Resistance Factor: 0.70
+Tension
+Maximum Capacity: 7,116 kN
+At Depth: 39.8 m
+API RP 2GEO COMPLIANCE
+✅ Section 8.1: Axial capacity calculations (α-method for clay, API Table 1 for sand)
+
+✅ Section 8.2: Tension capacity (separate calculation, no end bearing)
+
+✅ Section 8.4: Load-displacement curves (t-z and Q-z, 5-point discretization)
+
+✅ Section 8.5: Lateral capacity (p-y curves per Matlock/Reese/API methods)
+
+✅ Table 1: Extended implementation for all soil types
+
+✅ Annex A: LRFD resistance factors
+
+✅ Annex B: Carbonate soil considerations
+
+✅ Annex C: Penetration requirements (Good penetration: 4.0m (> 3D))
+
+PROFESSIONAL CERTIFICATION
+This analysis was performed using pile-SRI v2.6, which implements:
+
+Full API RP 2GEO Section 8 compliance
+Industry-standard 5-point discretization
+LRFD resistance factors
+Enhanced carbonate soil handling
+Automatic penetration validation
+Important: This analysis should be reviewed by a licensed professional engineer before use in final design.
