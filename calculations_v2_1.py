@@ -932,24 +932,38 @@ class LateralCapacity:
 
         IMPROVEMENT: Uses proper C1, C2, C3 calculation
         """
+        layer = profile.get_layer_at_depth(depth_m)
         phi_prime = profile.get_property_at_depth(depth_m, "phi_prime")
         gamma_prime = profile.get_property_at_depth(depth_m, "gamma_prime")
 
+        # DEBUG: Print what we retrieved
+        print(f"[DEBUG sand_py_curve] Depth={depth_m}m, Layer={layer.name if layer else 'None'}, "
+              f"phi'={phi_prime}, gamma'={gamma_prime}")
+        if layer:
+            print(f"  Layer type: {layer.soil_type}, Top: {layer.depth_top_m}m, Bot: {layer.depth_bot_m}m")
+            print(f"  gamma_prime_kNm3 points: {layer.gamma_prime_kNm3}")
+            print(f"  phi_prime_deg points: {layer.phi_prime_deg}")
+
         # If phi_prime not available, estimate from relative density as fallback
         if not np.isfinite(phi_prime) or phi_prime <= 0:
-            layer = profile.get_layer_at_depth(depth_m)
             if layer and layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
                 # Fallback: Estimate phi from Dr (Bolton 1986 correlation)
                 Dr = layer.relative_density_pct
                 phi_prime = 28.0 + 0.17 * Dr
-                # Only warn in debug mode - this is a valid fallback
-                if False:  # Set to True to enable warnings
-                    warnings.warn(f"phi_prime not specified at {depth_m}m, estimated {phi_prime:.1f}° from Dr={Dr:.1f}%")
+                print(f"  [FALLBACK] Using phi' from Dr: {phi_prime:.1f}° (Dr={Dr}%)")
             else:
+                print(f"  [ERROR] No phi_prime and layer not sand - returning empty")
                 return np.array([]), np.array([])
 
+        # If gamma_prime not available, use typical value for submerged soil
         if not np.isfinite(gamma_prime) or gamma_prime <= 0:
-            return np.array([]), np.array([])
+            if layer and layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
+                # Typical submerged unit weight for sand
+                gamma_prime = 10.0  # kN/m³ (conservative for submerged sand)
+                print(f"  [FALLBACK] Using gamma' fallback: {gamma_prime} kN/m³")
+            else:
+                print(f"  [ERROR] No gamma_prime and layer not sand - returning empty")
+                return np.array([]), np.array([])
 
         D = pile.diameter_m
         z = depth_m
