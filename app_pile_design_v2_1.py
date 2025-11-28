@@ -7,7 +7,7 @@ following API RP 2GEO standards with v2.6.1 enhancements.
 
 NEW in v2.6.1:
 - ✅ CRITICAL: Fixed limiting capacity enforcement (f_L, q_L per API Table 1)
-- ✅ Enhanced 8-point table discretization (t-z, Q-z, p-y)
+- ✅ Enhanced table discretization (8-point t-z/Q-z, 5-point p-y)
 - ✅ User-configurable depth intervals (1m default)
 - ✅ Separate compression/tension t-z tables
 - ✅ Instantaneous unit friction calculation
@@ -247,7 +247,7 @@ def render_sidebar() -> Dict:
             "Table Depth Interval (m)",
             options=[0.5, 1.0, 2.0, 5.0],
             index=1,  # Default to 1.0m
-            help="Spacing between depths in t-z, Q-z, and p-y tables (8 points per curve)"
+            help="Spacing between depths in t-z, Q-z, and p-y tables (8 points for t-z/Q-z, 5 points for p-y)"
         )
 
         # NEW: Customizable table depths
@@ -759,7 +759,7 @@ def format_table_display(df: pd.DataFrame, table_type: str = 'tz') -> pd.DataFra
             format_dict['tip'] = '{:.0f}'
     elif table_type == 'py':
         # p values: 2 decimals (kN/m), y values: 4 decimals (mm)
-        for i in range(1, 9):
+        for i in range(1, 6):  # 5 points for p-y curves
             format_dict[f'p{i}'] = '{:.2f}'
             format_dict[f'y{i}'] = '{:.4f}'
         if 'Depth' in df.columns:
@@ -1027,9 +1027,9 @@ def render_results(config, pile, profile):
 
                     for _, row in py_table.iterrows():
                         depth = row['Depth']
-                        # Extract y and p values from wide format - 8 points now
-                        y_vals = [row[f'y{i}']/1000 for i in range(1, 9)]  # mm to m (8 points)
-                        p_vals = [row[f'p{i}'] for i in range(1, 9)]  # 8 points
+                        # Extract y and p values from wide format - 5 points
+                        y_vals = [row[f'y{i}']/1000 for i in range(1, 6)]  # mm to m (5 points)
+                        p_vals = [row[f'p{i}'] for i in range(1, 6)]  # 5 points
 
                         fig_py.add_trace(go.Scatter(
                             x=y_vals,
@@ -1053,8 +1053,8 @@ def render_results(config, pile, profile):
 
                     # Display wide-format table
                     st.markdown("---")
-                    st.markdown("### 📋 8-Point p-y Table (Enhanced v2.6.1)")
-                    st.markdown("**Format:** p values in kN/m, y values in mm | 8 points per curve")
+                    st.markdown("### 📋 5-Point p-y Table (Enhanced v2.6.1)")
+                    st.markdown("**Format:** p values in kN/m, y values in mm | 5 points per curve")
                     formatted_py = format_table_display(py_table, 'py')
                     st.dataframe(formatted_py, use_container_width=True, hide_index=True)
                 else:
