@@ -932,12 +932,12 @@ class LateralCapacity:
 
         IMPROVEMENT: Uses proper C1, C2, C3 calculation
         """
+        layer = profile.get_layer_at_depth(depth_m)
         phi_prime = profile.get_property_at_depth(depth_m, "phi_prime")
         gamma_prime = profile.get_property_at_depth(depth_m, "gamma_prime")
 
         # If phi_prime not available, estimate from relative density as fallback
         if not np.isfinite(phi_prime) or phi_prime <= 0:
-            layer = profile.get_layer_at_depth(depth_m)
             if layer and layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
                 # Fallback: Estimate phi from Dr (Bolton 1986 correlation)
                 Dr = layer.relative_density_pct
@@ -948,8 +948,14 @@ class LateralCapacity:
             else:
                 return np.array([]), np.array([])
 
+        # If gamma_prime not available, use typical value for submerged soil (8-10 kN/m³)
         if not np.isfinite(gamma_prime) or gamma_prime <= 0:
-            return np.array([]), np.array([])
+            if layer and layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
+                # Typical submerged unit weight for sand
+                gamma_prime = 10.0  # kN/m³ (conservative for submerged sand)
+                warnings.warn(f"gamma_prime not specified at {depth_m}m for sand, using typical value {gamma_prime} kN/m³")
+            else:
+                return np.array([]), np.array([])
 
         D = pile.diameter_m
         z = depth_m
