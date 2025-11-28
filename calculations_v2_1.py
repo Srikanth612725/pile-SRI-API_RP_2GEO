@@ -319,6 +319,68 @@ def discretize_py_curve_8points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
     return result
 
 
+def discretize_py_curve_5points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
+    """
+    Discretize p-y curve to 5-point format (WIDE FORMAT).
+
+    Standard points: 0.10, 0.30, 0.50, 0.70, 1.0 of peak
+    Uses interpolation for accurate discretization with unique values.
+
+    Returns dict with keys: p1-p5 (kN/m), y1-y5 (mm)
+    """
+    num_points = 5
+    if len(y_full) == 0:
+        result = {f'p{i+1}': 0.0 for i in range(num_points)}
+        result.update({f'y{i+1}': 0.0 for i in range(num_points)})
+        return result
+
+    # Remove zero point if it exists (first point is often 0,0)
+    if len(y_full) > 1 and np.abs(y_full[0]) < 1e-10 and np.abs(p_full[0]) < 1e-10:
+        y_full = y_full[1:]
+        p_full = p_full[1:]
+
+    if len(y_full) == 0:
+        result = {f'p{i+1}': 0.0 for i in range(num_points)}
+        result.update({f'y{i+1}': 0.0 for i in range(num_points)})
+        return result
+
+    p_max = np.max(p_full)
+
+    # If all p values are the same or p_max is too small, return zeros
+    if p_max <= 1e-6 or np.allclose(p_full, p_full[0]):
+        result = {f'p{i+1}': 0.0 for i in range(num_points)}
+        result.update({f'y{i+1}': 0.0 for i in range(num_points)})
+        return result
+
+    # Use 5 discretization points for p-y curves
+    target_ratios = [0.10, 0.30, 0.50, 0.70, 1.0]
+    result = {}
+
+    # Check if curve is monotonically increasing (p should increase with y for p-y curves)
+    # If not monotonic, sort by p to enable interpolation
+    if not np.all(np.diff(p_full) >= 0):
+        # Sort by p values for interpolation
+        sort_idx = np.argsort(p_full)
+        p_sorted = p_full[sort_idx]
+        y_sorted = y_full[sort_idx]
+    else:
+        p_sorted = p_full
+        y_sorted = y_full
+
+    for i, ratio in enumerate(target_ratios, start=1):
+        target_p = ratio * p_max
+
+        # Use interpolation to find exact y value at target_p
+        # np.interp requires x (p_sorted) to be monotonically increasing
+        y_interp = np.interp(target_p, p_sorted, y_sorted)
+
+        # Convert units: p stays in kN/m, y from m to mm
+        result[f'p{i}'] = target_p  # Exact target value
+        result[f'y{i}'] = y_interp * 1000.0  # m to mm
+
+    return result
+
+
 # ============================================================================
 # DATA CLASSES
 # ============================================================================
@@ -992,8 +1054,8 @@ class LateralCapacity:
         """
         Generate industry-standard p-y table in WIDE FORMAT.
 
-        Format: One row per depth with 4 points
-        Columns: Depth(m), Soil, p1, y1, p2, y2, p3, y3, p4, y4
+        Format: One row per depth with 5 points
+        Columns: Depth(m), Soil, p1, y1, p2, y2, p3, y3, p4, y4, p5, y5
         Units: p in kN/m, y in mm
         """
         all_results = []
@@ -1019,21 +1081,21 @@ class LateralCapacity:
             if len(y) == 0:
                 continue
 
-            # Discretize to 8 points (wide format)
-            row = discretize_py_curve_8points(y, p)
+            # Discretize to 5 points (wide format)
+            row = discretize_py_curve_5points(y, p)
             row['Depth'] = depth
             row['Soil'] = layer.soil_type.value
 
             all_results.append(row)
 
         if not all_results:
-            cols = ['Depth', 'Soil'] + [f'{x}{i+1}' for x in ['p', 'y'] for i in range(8)]
+            cols = ['Depth', 'Soil'] + [f'{x}{i+1}' for x in ['p', 'y'] for i in range(5)]
             return pd.DataFrame(columns=cols)
 
         df = pd.DataFrame(all_results)
-        # Reorder columns: Depth, Soil, p1, y1, p2, y2, ..., p8, y8
+        # Reorder columns: Depth, Soil, p1, y1, p2, y2, ..., p5, y5
         col_order = ['Depth', 'Soil']
-        for i in range(1, 9):
+        for i in range(1, 6):
             col_order.extend([f'p{i}', f'y{i}'])
 
         return df[col_order]
