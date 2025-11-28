@@ -1292,20 +1292,11 @@ class PileDesignAnalysis:
             self.profile, self.pile, tz_depths
         )
 
-        # Store same table for both (contains both 'c' and 't' rows)
-        results['tz_compression_table'] = tz_table
-        results['tz_tension_table'] = tz_table
-        
-        # Q-z table (generate at multiple depths like t-z)
-        if qz_depths is None:
-            # Generate Q-z at intervals similar to t-z, typically every 5m
-            qz_depths = np.arange(5, max_depth_m + 1, 5).tolist()
-            # Also include the pile tip depth if it's different
-            pile_tip_depth = self.pile.length_m if self.pile.length_m > 0 else max_depth_m
-            if pile_tip_depth not in qz_depths and pile_tip_depth > 0:
-                qz_depths.append(pile_tip_depth)
-                qz_depths = sorted(qz_depths)
-        # Q-z table (generate at multiple depths matching t-z depths)
+        # Split into separate compression and tension tables
+        results['tz_compression_table'] = tz_table_combined[tz_table_combined['Soil type'] == 'c'].copy()
+        results['tz_tension_table'] = tz_table_combined[tz_table_combined['Soil type'] == 't'].copy()
+
+        # Q-z table (user-configurable depth intervals)
         if qz_depths is None:
             qz_depths = np.arange(depth_interval, max_depth_m + 0.1, depth_interval).tolist()
 
