@@ -286,6 +286,8 @@ def discretize_py_curve_8points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
 
     # If all p values are the same or p_max is too small, return zeros
     if p_max <= 1e-6 or np.allclose(p_full, p_full[0]):
+        print(f"  [DISCRETIZE] Returning zeros! p_max={p_max:.6f}, allclose={np.allclose(p_full, p_full[0])}")
+        print(f"  [DISCRETIZE] p_full={p_full[:5]}... (showing first 5)")
         result = {f'p{i+1}': 0.0 for i in range(num_points)}
         result.update({f'y{i+1}': 0.0 for i in range(num_points)})
         return result
@@ -992,6 +994,13 @@ class LateralCapacity:
         # Generate curve
         y_disp = np.linspace(0, 1.0, 20)
         p_resist = A * pu * np.tanh(k * z * y_disp / (A * pu + 0.01))
+
+        # DEBUG: Show calculated values
+        print(f"  pu_shallow={pu_shallow:.2f}, pu_deep={pu_deep:.2f}, pu={pu:.2f} kN/m")
+        print(f"  C1={C1:.3f}, C2={C2:.3f}, C3={C3:.3f}, k={k:.1f} kPa/m, A={A:.2f}")
+        print(f"  p_resist range: {np.min(p_resist):.4f} to {np.max(p_resist):.4f} kN/m")
+        print(f"  y_disp range: {np.min(y_disp):.4f} to {np.max(y_disp):.4f} m")
+        print(f"  Returning arrays of length: {len(y_disp)}, {len(p_resist)}")
 
         return y_disp, p_resist
 
