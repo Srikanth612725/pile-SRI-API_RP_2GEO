@@ -286,8 +286,6 @@ def discretize_py_curve_8points(y_full: np.ndarray, p_full: np.ndarray) -> Dict:
 
     # If all p values are the same or p_max is too small, return zeros
     if p_max <= 1e-6 or np.allclose(p_full, p_full[0]):
-        print(f"  [DISCRETIZE] Returning zeros! p_max={p_max:.6f}, allclose={np.allclose(p_full, p_full[0])}")
-        print(f"  [DISCRETIZE] p_full={p_full[:5]}... (showing first 5)")
         result = {f'p{i+1}': 0.0 for i in range(num_points)}
         result.update({f'y{i+1}': 0.0 for i in range(num_points)})
         return result
@@ -938,23 +936,13 @@ class LateralCapacity:
         phi_prime = profile.get_property_at_depth(depth_m, "phi_prime")
         gamma_prime = profile.get_property_at_depth(depth_m, "gamma_prime")
 
-        # DEBUG: Print what we retrieved
-        print(f"[DEBUG sand_py_curve] Depth={depth_m}m, Layer={layer.name if layer else 'None'}, "
-              f"phi'={phi_prime}, gamma'={gamma_prime}")
-        if layer:
-            print(f"  Layer type: {layer.soil_type}, Top: {layer.depth_top_m}m, Bot: {layer.depth_bot_m}m")
-            print(f"  gamma_prime_kNm3 points: {layer.gamma_prime_kNm3}")
-            print(f"  phi_prime_deg points: {layer.phi_prime_deg}")
-
         # If phi_prime not available, estimate from relative density as fallback
         if not np.isfinite(phi_prime) or phi_prime <= 0:
             if layer and layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
                 # Fallback: Estimate phi from Dr (Bolton 1986 correlation)
                 Dr = layer.relative_density_pct
                 phi_prime = 28.0 + 0.17 * Dr
-                print(f"  [FALLBACK] Using phi' from Dr: {phi_prime:.1f}° (Dr={Dr}%)")
             else:
-                print(f"  [ERROR] No phi_prime and layer not sand - returning empty")
                 return np.array([]), np.array([])
 
         # If gamma_prime not available, use typical value for submerged soil
@@ -962,9 +950,7 @@ class LateralCapacity:
             if layer and layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
                 # Typical submerged unit weight for sand
                 gamma_prime = 10.0  # kN/m³ (conservative for submerged sand)
-                print(f"  [FALLBACK] Using gamma' fallback: {gamma_prime} kN/m³")
             else:
-                print(f"  [ERROR] No gamma_prime and layer not sand - returning empty")
                 return np.array([]), np.array([])
 
         D = pile.diameter_m
@@ -991,16 +977,11 @@ class LateralCapacity:
             A = 3.0 - 0.8 * z / D
             A = max(A, 0.9)
 
-        # Generate curve
-        y_disp = np.linspace(0, 1.0, 20)
+        # Generate curve with proper displacement range
+        # Use maximum displacement of 0.2*D (API recommendation for sand)
+        y_max = 0.2 * D  # meters (e.g., 200mm for 1m diameter pile)
+        y_disp = np.linspace(0, y_max, 50)  # More points for smoother curve
         p_resist = A * pu * np.tanh(k * z * y_disp / (A * pu + 0.01))
-
-        # DEBUG: Show calculated values
-        print(f"  pu_shallow={pu_shallow:.2f}, pu_deep={pu_deep:.2f}, pu={pu:.2f} kN/m")
-        print(f"  C1={C1:.3f}, C2={C2:.3f}, C3={C3:.3f}, k={k:.1f} kPa/m, A={A:.2f}")
-        print(f"  p_resist range: {np.min(p_resist):.4f} to {np.max(p_resist):.4f} kN/m")
-        print(f"  y_disp range: {np.min(y_disp):.4f} to {np.max(y_disp):.4f} m")
-        print(f"  Returning arrays of length: {len(y_disp)}, {len(p_resist)}")
 
         return y_disp, p_resist
 
