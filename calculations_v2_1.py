@@ -412,6 +412,10 @@ class SoilLayer:
     phi_prime_deg: List[SoilPoint] = field(default_factory=list)
     E50_kPa: List[SoilPoint] = field(default_factory=list)
 
+    # Lateral p-y curve parameters (site-specific from testing)
+    k_kNm3: List[SoilPoint] = field(default_factory=list)  # Subgrade modulus for sand (kN/m³)
+    epsilon_50_pct: List[SoilPoint] = field(default_factory=list)  # Strain at 50% capacity for clay (%)
+
     # Enhanced properties for API compliance
     relative_density_pct: float = 50.0  # For sands
     is_cemented: bool = False
@@ -424,7 +428,8 @@ class SoilLayer:
             raise ValueError(f"depth_bot must be > depth_top")
 
         # Sort all profiles by depth
-        for profile in [self.gamma_prime_kNm3, self.su_kPa, self.phi_prime_deg, self.E50_kPa]:
+        for profile in [self.gamma_prime_kNm3, self.su_kPa, self.phi_prime_deg,
+                       self.E50_kPa, self.k_kNm3, self.epsilon_50_pct]:
             profile.sort(key=lambda p: p.depth_m)
 
     def get_property_at_depth(self, depth_m: float, property_name: str) -> float:
@@ -437,6 +442,10 @@ class SoilLayer:
             profile = self.phi_prime_deg
         elif property_name == "E50":
             profile = self.E50_kPa
+        elif property_name == "k":
+            profile = self.k_kNm3
+        elif property_name == "epsilon_50":
+            profile = self.epsilon_50_pct
         else:
             raise ValueError(f"Unknown property: {property_name}")
 
@@ -913,7 +922,7 @@ class LateralCapacity:
 
     @staticmethod
     def matlock_soft_clay(depth_m: float, profile: SoilProfile,
-                         pile: PileProperties, 
+                         pile: PileProperties,
                          analysis_type: AnalysisType = AnalysisType.STATIC) -> Tuple[np.ndarray, np.ndarray]:
         """Matlock method for soft clay (su ≤ 100 kPa) - API 8.5.2-8.5.3."""
         su = profile.get_property_at_depth(depth_m, "su")
@@ -947,7 +956,13 @@ class LateralCapacity:
                 p_ratios = np.array([0.0, 0.23, 0.33, 0.50, 0.72, 1.00, 1.00])
                 y_ratios = np.array([0.0, 0.1, 0.3, 1.0, 3.0, 8.0, np.inf])
 
-        epsilon_c = 0.02
+        # Get epsilon_50 from layer if available, otherwise use default
+        epsilon_50_pct = profile.get_property_at_depth(depth_m, "epsilon_50")
+        if not np.isfinite(epsilon_50_pct) or epsilon_50_pct <= 0:
+            epsilon_c = 0.02  # Default API value for soft clay
+        else:
+            epsilon_c = epsilon_50_pct / 100.0  # Convert % to decimal
+
         y_peak = epsilon_c * D
 
         p_resist = p_ratios * pu_D
@@ -969,10 +984,14 @@ class LateralCapacity:
         D = pile.diameter_m
         pu_D = min(3 + 0.3*depth_m/D, 9) * su * D
 
-        # API RP 2GEO Section 8.5.4: epsilon_50 varies with Su
-        # For stiff to very stiff clay (100-200 kPa), use epsilon_50 = 0.020
-        # This gives better match with validation data
-        epsilon_50 = 0.020
+        # Get epsilon_50 from layer if available, otherwise use default
+        # API RP 2GEO Section 8.5.4: epsilon_50 varies with Su and soil stiffness
+        epsilon_50_pct = profile.get_property_at_depth(depth_m, "epsilon_50")
+        if not np.isfinite(epsilon_50_pct) or epsilon_50_pct <= 0:
+            epsilon_50 = 0.020  # Default API value for stiff clay
+        else:
+            epsilon_50 = epsilon_50_pct / 100.0  # Convert % to decimal
+
         y_50 = epsilon_50 * D
 
         if analysis_type == AnalysisType.STATIC:
@@ -999,7 +1018,7 @@ class LateralCapacity:
         """
         Sand p-y curve with proper C coefficients - API 8.5.6-8.5.7.
 
-        IMPROVEMENT: Uses proper C1, C2, C3 calculation
+        IMPROVEMENT: Uses site-specific k value if available, otherwise falls back to API Table 5
         """
         layer = profile.get_layer_at_depth(depth_m)
         phi_prime = profile.get_property_at_depth(depth_m, "phi_prime")
@@ -1034,10 +1053,17 @@ class LateralCapacity:
 
         pu = min(pu_shallow, pu_deep)
 
-        # Table 5 - k values
-        k_values = {25: 5.4, 30: 11, 35: 22, 40: 45}
-        k = np.interp(phi_prime, list(k_values.keys()), list(k_values.values()))
-        k = k * 1000  # Convert to kPa/m
+        # Get k value (subgrade reaction modulus)
+        # Priority: 1) Site-specific value from testing, 2) API Table 5 interpolation
+        k = profile.get_property_at_depth(depth_m, "k")
+
+        if not np.isfinite(k) or k <= 0:
+            # Fallback to API RP 2GEO Table 5 - k values (MN/m³)
+            k_values_table5 = {25: 5.4, 30: 11, 35: 22, 40: 45}  # MN/m³
+            k_MNm3 = np.interp(phi_prime, list(k_values_table5.keys()), list(k_values_table5.values()))
+            k = k_MNm3 * 1000  # Convert MN/m³ to kN/m³
+
+        # k is now in kN/m³ (same units as input parameter)
 
         # Cyclic reduction
         if analysis_type == AnalysisType.CYCLIC:
