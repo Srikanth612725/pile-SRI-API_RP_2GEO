@@ -1465,9 +1465,12 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
             # Calculate derived parameters
             if np.isfinite(phi_prime) and phi_prime > 0:
                 # β from API Table 1
-                from_table = API_TABLE_1_EXTENDED.get(layer.soil_type, {}).get(
-                    layer.get_relative_density_class(), {}
-                )
+                # Key format: (relative_density_class, soil_type)
+                dr_class = layer.get_relative_density_class().value
+                soil_desc = layer.soil_type.value
+                table_key = (dr_class, soil_desc)
+                from_table = API_TABLE_1_EXTENDED.get(table_key, {})
+
                 beta = from_table.get('beta', np.nan)
                 Nq = from_table.get('Nq', np.nan)
 
@@ -1481,8 +1484,8 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
                     'Shear Strength Su (kPa)': "-",
                     'β': f"{beta:.2f}" if np.isfinite(beta) else "-",
                     'Nq': f"{Nq:.2f}" if np.isfinite(Nq) else "-",
-                    'fplug (kPa)': from_table.get('f_limit_kPa', "-"),
-                    'qpun (MPa)': from_table.get('q_limit_MPa', "-"),
+                    'fplug (kPa)': from_table.get('f_limit_kPa', "-") if from_table else "-",
+                    'qpun (MPa)': from_table.get('q_limit_MPa', "-") if from_table else "-",
                     'ε₅₀ (%)': "-",
                     'k (kN/m³)': f"{k_kNm3:.0f}",
                 })
