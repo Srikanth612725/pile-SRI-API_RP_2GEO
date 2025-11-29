@@ -49,6 +49,7 @@ try:
         AxialCapacity, LateralCapacity, LoadDisplacementTables,
         PileDesignAnalysis,
         API_TABLE_1_EXTENDED, RESISTANCE_FACTORS, CARBONATE_REDUCTION_FACTORS,
+        generate_design_soil_parameters_table,
     )
     CALC_ENGINE_AVAILABLE = True
 except ImportError:
@@ -384,7 +385,12 @@ def render_soil_input() -> SoilProfile:
 
             # Tab 1: Soil data points
             with tab1:
-                col_g, col_s, col_py = st.columns(3)
+                # For clays: show gamma, Su, and epsilon_50
+                # For sands: show gamma and phi only (k is auto-calculated from API Table 5)
+                if layer['type'] in ['clay', 'silt']:
+                    col_g, col_s, col_eps = st.columns(3)
+                else:
+                    col_g, col_s = st.columns(2)
 
                 # Gamma prime
                 with col_g:
@@ -448,43 +454,40 @@ def render_soil_input() -> SoilProfile:
                         ])
                         st.dataframe(df, use_container_width=True, hide_index=True)
 
-                # p-y curve parameters (NEW!)
-                with col_py:
-                    if layer['type'] in ['clay', 'silt']:
-                        st.markdown("**ε₅₀ (%)**")
-                        py_points = 'epsilon_50_points'
-                        py_label = 'ε₅₀ (%)'
-                        py_default = 2.0
-                        py_help = "Strain at 50% capacity (from UU testing)"
-                    else:
-                        st.markdown("**k (kN/m³)**")
-                        py_points = 'k_points'
-                        py_label = 'k (kN/m³)'
-                        py_default = 5400.0
-                        py_help = "Subgrade modulus (API Table 5 or site-specific)"
+                # Epsilon_50 for clays only (from UU testing)
+                if layer['type'] in ['clay', 'silt']:
+                    with col_eps:
+                        st.markdown("**ε₅₀ (%)** ⭐")
+                        st.caption("Optional: from UU testing")
+                        with st.form(f"add_eps_{idx}"):
+                            c1, c2, c3 = st.columns([1, 1, 1])
+                            with c1:
+                                eps_z = st.number_input("Depth", value=layer['z_top'],
+                                                       min_value=layer['z_top'], max_value=layer['z_bot'],
+                                                       step=0.1, key=f"epsz_{idx}")
+                            with c2:
+                                eps_v = st.number_input("ε₅₀ (%)", value=2.0, step=0.1, key=f"epsv_{idx}",
+                                                       help="Strain at 50% capacity from UU testing. Default: 2.0%")
+                            with c3:
+                                if st.form_submit_button("Add", use_container_width=True):
+                                    if 'epsilon_50_points' not in layer:
+                                        layer['epsilon_50_points'] = []
+                                    layer['epsilon_50_points'].append(SoilPoint(eps_z, eps_v))
+                                    layer['epsilon_50_points'].sort(key=lambda p: p.depth_m)
+                                    st.rerun()
 
-                    with st.form(f"add_py_{idx}"):
-                        c1, c2, c3 = st.columns([1, 1, 1])
-                        with c1:
-                            py_z = st.number_input("Depth", value=layer['z_top'],
-                                                  min_value=layer['z_top'], max_value=layer['z_bot'],
-                                                  step=0.1, key=f"pyz_{idx}")
-                        with c2:
-                            py_v = st.number_input(py_label, value=py_default, step=100.0 if layer['type'] in ['sand', 'sand-silt'] else 0.1, key=f"pyv_{idx}", help=py_help)
-                        with c3:
-                            if st.form_submit_button("Add", use_container_width=True):
-                                if py_points not in layer:
-                                    layer[py_points] = []
-                                layer[py_points].append(SoilPoint(py_z, py_v))
-                                layer[py_points].sort(key=lambda p: p.depth_m)
-                                st.rerun()
+                        if layer.get('epsilon_50_points'):
+                            df = pd.DataFrame([
+                                {'Depth (m)': p.depth_m, 'ε₅₀ (%)': p.value}
+                                for p in layer['epsilon_50_points']
+                            ])
+                            st.dataframe(df, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("ℹ️ Using default: 2.0%")
 
-                    if layer.get(py_points):
-                        df = pd.DataFrame([
-                            {'Depth (m)': p.depth_m, py_label: p.value}
-                            for p in layer[py_points]
-                        ])
-                        st.dataframe(df, use_container_width=True, hide_index=True)
+                # Info for sands about k calculation
+                if layer['type'] in ['sand', 'sand-silt']:
+                    st.info("ℹ️ **k** (subgrade modulus) is automatically calculated from API RP 2GEO Table 5 based on φ'")
 
             # Tab 2: Enhanced v2.1 properties
             with tab2:
@@ -636,7 +639,7 @@ def render_soil_input() -> SoilProfile:
                 gamma_prime_kNm3=layer_data.get('gamma_points', []),
                 su_kPa=layer_data.get('su_points', []),
                 phi_prime_deg=layer_data.get('phi_points', []),
-                k_kNm3=layer_data.get('k_points', []),
+                # k_kNm3 is auto-calculated from API Table 5 based on phi_prime
                 epsilon_50_pct=layer_data.get('epsilon_50_points', []),
                 relative_density_pct=layer_data.get('relative_density', 50.0),
                 carbonate_content_pct=layer_data.get('carbonate_content', 0.0),
@@ -1189,7 +1192,34 @@ def render_results(config, pile, profile):
         # TAB 5: Validation
         with tab5:
             st.subheader("✅ API RP 2GEO Compliance Validation")
-            
+
+            # Design Soil Parameters Summary
+            st.markdown("### 📋 Design Soil Parameters Summary")
+            st.caption("Input parameters and derived values used in analysis")
+
+            design_params_df = generate_design_soil_parameters_table(profile)
+            st.dataframe(design_params_df, use_container_width=True, hide_index=True)
+
+            with st.expander("ℹ️ Parameter Definitions"):
+                st.markdown("""
+                **Input Parameters** (provided by user):
+                - **γ'**: Submerged unit weight (kN/m³)
+                - **φ'**: Angle of internal friction (degrees) - for sands
+                - **Su**: Undrained shear strength (kPa) - for clays
+                - **ε₅₀**: Strain at 50% capacity (%) - from UU testing (optional, default 2.0%)
+
+                **Derived Parameters** (calculated from API RP 2GEO):
+                - **β**: Shaft friction coefficient (API Table 1)
+                - **Nq**: Bearing capacity factor (API Table 1)
+                - **fplug**: Limiting unit shaft friction (kPa) - API Table 1
+                - **qpun**: Limiting unit end bearing (MPa) - API Table 1
+                - **k**: Subgrade reaction modulus (kN/m³) - API Table 5, interpolated from φ'
+
+                **Note:** k values for sand are automatically calculated from API Table 5 based on friction angle.
+                """)
+
+            st.markdown("---")
+
             # Design method
             st.markdown("### Design Method")
             if config['use_lrfd']:

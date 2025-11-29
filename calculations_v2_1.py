@@ -1429,6 +1429,99 @@ class PileDesignAnalysis:
         return results
 
 
+# ============================================================================
+# DESIGN SOIL PARAMETERS SUMMARY
+# ============================================================================
+
+def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
+    """
+    Generate design soil parameters summary table showing both input and derived values.
+
+    This table provides transparency by showing:
+    - Input parameters: γ', φ', Su, ε₅₀ (if provided)
+    - Derived parameters: β, Nq, k (from API Table 5), fplug, qpun, ε₅₀ (default if not provided)
+
+    Similar to the design parameters table commonly included in geotechnical reports.
+    """
+    rows = []
+
+    for layer in profile.layers:
+        # Get mid-depth for representative values
+        mid_depth = (layer.depth_top_m + layer.depth_bot_m) / 2.0
+
+        # Common parameters
+        gamma_prime = profile.get_property_at_depth(mid_depth, "gamma_prime")
+
+        row = {
+            'Depth (m)': f"{layer.depth_top_m:.1f} - {layer.depth_bot_m:.1f}",
+            'Strata': layer.name,
+            'Submerged Unit Weight (kN/m³)': f"{gamma_prime:.2f}" if np.isfinite(gamma_prime) else "-",
+        }
+
+        if layer.soil_type in [SoilType.SAND, SoilType.SAND_SILT]:
+            # Sand parameters
+            phi_prime = profile.get_property_at_depth(mid_depth, "phi_prime")
+
+            # Calculate derived parameters
+            if np.isfinite(phi_prime) and phi_prime > 0:
+                # β from API Table 1
+                from_table = API_TABLE_1_EXTENDED.get(layer.soil_type, {}).get(
+                    layer.get_relative_density_class(), {}
+                )
+                beta = from_table.get('beta', np.nan)
+                Nq = from_table.get('Nq', np.nan)
+
+                # k from API Table 5
+                k_values_table5 = {25: 5.4, 30: 11, 35: 22, 40: 45}  # MN/m³
+                k_MNm3 = np.interp(phi_prime, list(k_values_table5.keys()), list(k_values_table5.values()))
+                k_kNm3 = k_MNm3 * 1000  # Convert to kN/m³
+
+                row.update({
+                    'Angle of Internal Friction (°)': f"{phi_prime:.0f}",
+                    'Shear Strength Su (kPa)': "-",
+                    'β': f"{beta:.2f}" if np.isfinite(beta) else "-",
+                    'Nq': f"{Nq:.2f}" if np.isfinite(Nq) else "-",
+                    'fplug (kPa)': from_table.get('f_limit_kPa', "-"),
+                    'qpun (MPa)': from_table.get('q_limit_MPa', "-"),
+                    'ε₅₀ (%)': "-",
+                    'k (kN/m³)': f"{k_kNm3:.0f}",
+                })
+            else:
+                row.update({
+                    'Angle of Internal Friction (°)': "-",
+                    'Shear Strength Su (kPa)': "-",
+                    'β': "-",
+                    'Nq': "-",
+                    'fplug (kPa)': "-",
+                    'qpun (MPa)': "-",
+                    'ε₅₀ (%)': "-",
+                    'k (kN/m³)': "-",
+                })
+
+        else:  # Clay or Silt
+            su = profile.get_property_at_depth(mid_depth, "su")
+            epsilon_50_pct = profile.get_property_at_depth(mid_depth, "epsilon_50")
+
+            # Use default if not provided
+            if not np.isfinite(epsilon_50_pct) or epsilon_50_pct <= 0:
+                epsilon_50_pct = 2.0  # Default 2%
+
+            row.update({
+                'Angle of Internal Friction (°)': "-",
+                'Shear Strength Su (kPa)': f"{su:.0f}" if np.isfinite(su) else "-",
+                'β': "-",
+                'Nq': "-",
+                'fplug (kPa)': "-",
+                'qpun (MPa)': "-",
+                'ε₅₀ (%)': f"{epsilon_50_pct:.2f}",
+                'k (kN/m³)': "-",
+            })
+
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
 # Export
 __all__ = [
     'SoilType', 'PileType', 'LoadingType', 'AnalysisType', 'RelativeDensity',
@@ -1437,4 +1530,5 @@ __all__ = [
     'PileDesignAnalysis',
     'API_TABLE_1_EXTENDED', 'RESISTANCE_FACTORS', 'CARBONATE_REDUCTION_FACTORS',
     'discretize_tz_curve_8points', 'discretize_qz_curve_8points', 'discretize_py_curve_8points',
+    'generate_design_soil_parameters_table',
 ]
