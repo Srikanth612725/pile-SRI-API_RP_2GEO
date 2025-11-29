@@ -384,15 +384,15 @@ def render_soil_input() -> SoilProfile:
 
             # Tab 1: Soil data points
             with tab1:
-                col_g, col_s = st.columns(2)
-                
+                col_g, col_s, col_py = st.columns(3)
+
                 # Gamma prime
                 with col_g:
                     st.markdown("**γ' (kN/m³)**")
                     with st.form(f"add_gamma_{idx}"):
                         c1, c2, c3 = st.columns([1, 1, 1])
                         with c1:
-                            gz = st.number_input("Depth", value=layer['z_top'], 
+                            gz = st.number_input("Depth", value=layer['z_top'],
                                                min_value=layer['z_top'], max_value=layer['z_bot'],
                                                step=0.1, key=f"gz_{idx}")
                         with c2:
@@ -404,7 +404,7 @@ def render_soil_input() -> SoilProfile:
                                 layer['gamma_points'].append(SoilPoint(gz, gv))
                                 layer['gamma_points'].sort(key=lambda p: p.depth_m)
                                 st.rerun()
-                    
+
                     if layer.get('gamma_points'):
                         df = pd.DataFrame([
                             {'Depth (m)': p.depth_m, 'γ\' (kN/m³)': p.value}
@@ -424,7 +424,7 @@ def render_soil_input() -> SoilProfile:
                         param_points = 'phi_points'
                         param_label = 'φ\' (deg)'
                         default_val = 32.0
-                    
+
                     with st.form(f"add_param_{idx}"):
                         c1, c2, c3 = st.columns([1, 1, 1])
                         with c1:
@@ -440,11 +440,49 @@ def render_soil_input() -> SoilProfile:
                                 layer[param_points].append(SoilPoint(pz, pv))
                                 layer[param_points].sort(key=lambda p: p.depth_m)
                                 st.rerun()
-                    
+
                     if layer.get(param_points):
                         df = pd.DataFrame([
                             {'Depth (m)': p.depth_m, param_label: p.value}
                             for p in layer[param_points]
+                        ])
+                        st.dataframe(df, use_container_width=True, hide_index=True)
+
+                # p-y curve parameters (NEW!)
+                with col_py:
+                    if layer['type'] in ['clay', 'silt']:
+                        st.markdown("**ε₅₀ (%)**")
+                        py_points = 'epsilon_50_points'
+                        py_label = 'ε₅₀ (%)'
+                        py_default = 2.0
+                        py_help = "Strain at 50% capacity (from UU testing)"
+                    else:
+                        st.markdown("**k (kN/m³)**")
+                        py_points = 'k_points'
+                        py_label = 'k (kN/m³)'
+                        py_default = 5400.0
+                        py_help = "Subgrade modulus (API Table 5 or site-specific)"
+
+                    with st.form(f"add_py_{idx}"):
+                        c1, c2, c3 = st.columns([1, 1, 1])
+                        with c1:
+                            py_z = st.number_input("Depth", value=layer['z_top'],
+                                                  min_value=layer['z_top'], max_value=layer['z_bot'],
+                                                  step=0.1, key=f"pyz_{idx}")
+                        with c2:
+                            py_v = st.number_input(py_label, value=py_default, step=100.0 if layer['type'] in ['sand', 'sand-silt'] else 0.1, key=f"pyv_{idx}", help=py_help)
+                        with c3:
+                            if st.form_submit_button("Add", use_container_width=True):
+                                if py_points not in layer:
+                                    layer[py_points] = []
+                                layer[py_points].append(SoilPoint(py_z, py_v))
+                                layer[py_points].sort(key=lambda p: p.depth_m)
+                                st.rerun()
+
+                    if layer.get(py_points):
+                        df = pd.DataFrame([
+                            {'Depth (m)': p.depth_m, py_label: p.value}
+                            for p in layer[py_points]
                         ])
                         st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -598,6 +636,8 @@ def render_soil_input() -> SoilProfile:
                 gamma_prime_kNm3=layer_data.get('gamma_points', []),
                 su_kPa=layer_data.get('su_points', []),
                 phi_prime_deg=layer_data.get('phi_points', []),
+                k_kNm3=layer_data.get('k_points', []),
+                epsilon_50_pct=layer_data.get('epsilon_50_points', []),
                 relative_density_pct=layer_data.get('relative_density', 50.0),
                 carbonate_content_pct=layer_data.get('carbonate_content', 0.0),
                 is_cemented=layer_data.get('is_cemented', False),
