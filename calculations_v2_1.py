@@ -1776,22 +1776,34 @@ def generate_pdf_report(
     design_params_df = generate_design_soil_parameters_table(profile)
 
     if not design_params_df.empty:
-        # Convert DataFrame to table data
-        table_data = [design_params_df.columns.tolist()] + design_params_df.values.tolist()
+        # Convert DataFrame to table data with wrapped headers
+        # Create smaller header paragraphs for better wrapping
+        header_style = ParagraphStyle(
+            'TableHeader',
+            parent=styles['Normal'],
+            fontSize=5,
+            textColor=colors.whitesmoke,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            leading=6,
+            wordWrap='CJK'
+        )
+
+        # Create wrapped headers
+        wrapped_headers = [Paragraph(str(col), header_style) for col in design_params_df.columns]
+        table_data = [wrapped_headers] + design_params_df.values.tolist()
 
         # Create table with appropriate column widths
         # Columns: Depth, Strata, Soil Type, γ', φ', Su, β, Nq, fplug, qpun, e50, k, p-y Method
-        col_widths = [18*mm, 20*mm, 15*mm, 13*mm, 10*mm, 10*mm, 8*mm, 8*mm, 12*mm, 12*mm, 10*mm, 12*mm, 22*mm]
+        col_widths = [16*mm, 18*mm, 14*mm, 12*mm, 10*mm, 10*mm, 7*mm, 7*mm, 11*mm, 11*mm, 9*mm, 11*mm, 20*mm]
         params_table = Table(table_data, colWidths=col_widths, repeatRows=1)
         params_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 6),  # Smaller font for more columns
-            ('FONTSIZE', (0, 1), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('FONTSIZE', (0, 1), (-1, -1), 6),  # Data rows font size
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),  # More padding for wrapped headers
+            ('TOPPADDING', (0, 0), (-1, 0), 3),
+            ('TOPPADDING', (0, 1), (-1, -1), 2),
             ('BOTTOMPADDING', (0, 1), (-1, -1), 2),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
@@ -1907,9 +1919,37 @@ def generate_pdf_report(
                 img_bytes = pio.to_image(plot_figs['tz_compression'], format='png', width=700, height=400)
                 img = Image(io.BytesIO(img_bytes), width=160*mm, height=92*mm)
                 elements.append(img)
-                elements.append(Spacer(1, 12))
+                elements.append(Spacer(1, 6))
             except Exception as e:
                 elements.append(Paragraph(f"[t-z compression plot error: {str(e)}]", styles['Italic']))
+                elements.append(Spacer(1, 6))
+
+        # Add t-z compression data table
+        tz_comp_df = results.get('tz_compression_table', pd.DataFrame())
+        if not tz_comp_df.empty:
+            # Filter compression rows and limit to first 10 depths
+            tz_comp_data = tz_comp_df[tz_comp_df['Soil type'] == 'c'].head(10)
+            if not tz_comp_data.empty:
+                # Select key columns for display
+                display_cols = ['Depth'] + [col for col in tz_comp_data.columns if col.startswith(('t', 'z')) and any(c.isdigit() for c in col)][:6]
+                tz_display = tz_comp_data[display_cols]
+
+                # Create table
+                tz_table_data = [tz_display.columns.tolist()] + tz_display.values.tolist()
+                tz_table = Table(tz_table_data, repeatRows=1)
+                tz_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 7),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+                ]))
+                elements.append(Paragraph("Data Table (first 10 depths, t in MN/m, z in mm):", styles['Italic']))
+                elements.append(Spacer(1, 3))
+                elements.append(tz_table)
+                elements.append(Spacer(1, 12))
 
         # t-z Tension
         if 'tz_tension' in plot_figs and KALEIDO_AVAILABLE:
@@ -1929,9 +1969,35 @@ def generate_pdf_report(
                 img_bytes = pio.to_image(plot_figs['qz'], format='png', width=700, height=400)
                 img = Image(io.BytesIO(img_bytes), width=160*mm, height=92*mm)
                 elements.append(img)
-                elements.append(Spacer(1, 12))
+                elements.append(Spacer(1, 6))
             except Exception as e:
                 elements.append(Paragraph(f"[Q-z plot error: {str(e)}]", styles['Italic']))
+                elements.append(Spacer(1, 6))
+
+        # Add Q-z data table
+        qz_df = results.get('qz_table', pd.DataFrame())
+        if not qz_df.empty:
+            qz_data = qz_df.head(10)  # First 10 depths
+            # Select key columns
+            display_cols = ['Depth', 'tip'] + [col for col in qz_data.columns if col.startswith(('q', 'z')) and any(c.isdigit() for c in col)][:6]
+            qz_display = qz_data[[col for col in display_cols if col in qz_data.columns]]
+
+            # Create table
+            qz_table_data = [qz_display.columns.tolist()] + qz_display.values.tolist()
+            qz_table = Table(qz_table_data, repeatRows=1)
+            qz_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+            ]))
+            elements.append(Paragraph("Data Table (first 10 depths, q in MN, z in mm, tip: 0=unplugged/1=plugged):", styles['Italic']))
+            elements.append(Spacer(1, 3))
+            elements.append(qz_table)
+            elements.append(Spacer(1, 12))
 
         elements.append(PageBreak())
 
@@ -1945,9 +2011,35 @@ def generate_pdf_report(
                 img_bytes = pio.to_image(plot_figs['py'], format='png', width=700, height=500)
                 img = Image(io.BytesIO(img_bytes), width=160*mm, height=115*mm)
                 elements.append(img)
-                elements.append(Spacer(1, 12))
+                elements.append(Spacer(1, 6))
             except Exception:
                 elements.append(Paragraph("[p-y plot not available]", styles['Italic']))
+                elements.append(Spacer(1, 6))
+
+        # Add p-y data table
+        py_df = results.get('py_table', pd.DataFrame())
+        if not py_df.empty:
+            py_data = py_df.head(10)  # First 10 depths
+            # Select key columns - all p and y columns
+            display_cols = ['Depth', 'Soil'] + [col for col in py_data.columns if col.startswith(('p', 'y')) and any(c.isdigit() for c in col)]
+            py_display = py_data[[col for col in display_cols if col in py_data.columns]]
+
+            # Create table
+            py_table_data = [py_display.columns.tolist()] + py_display.values.tolist()
+            py_table = Table(py_table_data, repeatRows=1)
+            py_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+            ]))
+            elements.append(Paragraph("Data Table (first 10 depths, p in kN/m, y in mm, 5 points per curve):", styles['Italic']))
+            elements.append(Spacer(1, 3))
+            elements.append(py_table)
+            elements.append(Spacer(1, 12))
 
         elements.append(PageBreak())
 
