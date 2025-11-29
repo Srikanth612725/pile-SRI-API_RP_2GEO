@@ -1475,6 +1475,7 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
         row = {
             'Depth (m)': f"{layer.depth_top_m:.1f} - {layer.depth_bot_m:.1f}",
             'Strata': layer.name,
+            'Soil Type': layer.soil_type.value.title(),
             'Submerged Unit Weight (kN/m³)': f"{gamma_prime:.2f}" if np.isfinite(gamma_prime) else "-",
         }
 
@@ -1506,8 +1507,9 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
                     'Nq': f"{Nq:.2f}" if np.isfinite(Nq) else "-",
                     'fplug (kPa)': from_table.get('f_limit_kPa', "-") if from_table else "-",
                     'qpun (MPa)': from_table.get('q_limit_MPa', "-") if from_table else "-",
-                    'ε₅₀ (%)': "-",
+                    'e50 (%)': "-",
                     'k (kN/m³)': f"{k_kNm3:.0f}",
+                    'p-y Method': "API Sand",
                 })
             else:
                 row.update({
@@ -1517,8 +1519,9 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
                     'Nq': "-",
                     'fplug (kPa)': "-",
                     'qpun (MPa)': "-",
-                    'ε₅₀ (%)': "-",
+                    'e50 (%)': "-",
                     'k (kN/m³)': "-",
+                    'p-y Method': "-",
                 })
 
         else:  # Clay or Silt
@@ -1529,6 +1532,12 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
             if not np.isfinite(epsilon_50_pct) or epsilon_50_pct <= 0:
                 epsilon_50_pct = 2.0  # Default 2%
 
+            # Determine p-y method based on Su
+            if np.isfinite(su):
+                py_method = "Matlock (soft)" if su <= 100 else "Reese (stiff)"
+            else:
+                py_method = "-"
+
             row.update({
                 'Angle of Internal Friction (°)': "-",
                 'Shear Strength Su (kPa)': f"{su:.0f}" if np.isfinite(su) else "-",
@@ -1536,8 +1545,9 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
                 'Nq': "-",
                 'fplug (kPa)': "-",
                 'qpun (MPa)': "-",
-                'ε₅₀ (%)': f"{epsilon_50_pct:.2f}",
+                'e50 (%)': f"{epsilon_50_pct:.2f}",
                 'k (kN/m³)': "-",
+                'p-y Method': py_method,
             })
 
         rows.append(row)
@@ -1679,16 +1689,19 @@ def generate_pdf_report(
         table_data = [design_params_df.columns.tolist()] + design_params_df.values.tolist()
 
         # Create table with appropriate column widths
-        col_widths = [25*mm, 30*mm, 15*mm, 12*mm, 12*mm, 10*mm, 10*mm, 15*mm, 15*mm, 12*mm, 15*mm]
+        # Columns: Depth, Strata, Soil Type, γ', φ', Su, β, Nq, fplug, qpun, e50, k, p-y Method
+        col_widths = [18*mm, 20*mm, 15*mm, 13*mm, 10*mm, 10*mm, 8*mm, 8*mm, 12*mm, 12*mm, 10*mm, 12*mm, 22*mm]
         params_table = Table(table_data, colWidths=col_widths, repeatRows=1)
         params_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 7),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('FONTSIZE', (0, 0), (-1, 0), 6),  # Smaller font for more columns
+            ('FONTSIZE', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 2),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -1792,20 +1805,33 @@ def generate_pdf_report(
     elements.append(PageBreak())
 
     # ========== LOAD-DISPLACEMENT CURVES ==========
-    if plot_figs and ('tz' in plot_figs or 'qz' in plot_figs):
+    if plot_figs and ('tz_compression' in plot_figs or 'tz_tension' in plot_figs or 'qz' in plot_figs):
         elements.append(Paragraph("4. LOAD-DISPLACEMENT CURVES", heading_style))
         elements.append(Spacer(1, 6))
 
-        if 'tz' in plot_figs and KALEIDO_AVAILABLE:
+        # t-z Compression
+        if 'tz_compression' in plot_figs and KALEIDO_AVAILABLE:
             try:
-                elements.append(Paragraph("t-z Curves (Shaft Friction)", subheading_style))
-                img_bytes = pio.to_image(plot_figs['tz'], format='png', width=700, height=400)
+                elements.append(Paragraph("t-z Curves - Compression (Shaft Friction)", subheading_style))
+                img_bytes = pio.to_image(plot_figs['tz_compression'], format='png', width=700, height=400)
                 img = Image(io.BytesIO(img_bytes), width=160*mm, height=92*mm)
                 elements.append(img)
                 elements.append(Spacer(1, 12))
-            except Exception:
-                pass
+            except Exception as e:
+                elements.append(Paragraph(f"[t-z compression plot error: {str(e)}]", styles['Italic']))
 
+        # t-z Tension
+        if 'tz_tension' in plot_figs and KALEIDO_AVAILABLE:
+            try:
+                elements.append(Paragraph("t-z Curves - Tension (Shaft Friction)", subheading_style))
+                img_bytes = pio.to_image(plot_figs['tz_tension'], format='png', width=700, height=400)
+                img = Image(io.BytesIO(img_bytes), width=160*mm, height=92*mm)
+                elements.append(img)
+                elements.append(Spacer(1, 12))
+            except Exception as e:
+                elements.append(Paragraph(f"[t-z tension plot error: {str(e)}]", styles['Italic']))
+
+        # Q-z Curves
         if 'qz' in plot_figs and KALEIDO_AVAILABLE:
             try:
                 elements.append(Paragraph("Q-z Curves (End Bearing)", subheading_style))
@@ -1813,8 +1839,8 @@ def generate_pdf_report(
                 img = Image(io.BytesIO(img_bytes), width=160*mm, height=92*mm)
                 elements.append(img)
                 elements.append(Spacer(1, 12))
-            except Exception:
-                pass
+            except Exception as e:
+                elements.append(Paragraph(f"[Q-z plot error: {str(e)}]", styles['Italic']))
 
         elements.append(PageBreak())
 
