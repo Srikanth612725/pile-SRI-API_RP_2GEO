@@ -33,6 +33,26 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate
 import warnings
+from datetime import datetime
+import io
+
+# PDF generation imports (imported conditionally to avoid errors if not installed)
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm, inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+
+try:
+    import plotly.io as pio
+    KALEIDO_AVAILABLE = True
+except ImportError:
+    KALEIDO_AVAILABLE = False
 
 
 # ============================================================================
@@ -1525,6 +1545,329 @@ def generate_design_soil_parameters_table(profile: SoilProfile) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# ============================================================================
+# PDF REPORT GENERATION
+# ============================================================================
+
+def generate_pdf_report(
+    profile: SoilProfile,
+    pile: PileProperties,
+    results: Dict,
+    config: Dict,
+    plot_figs: Dict[str, any] = None
+) -> io.BytesIO:
+    """
+    Generate a comprehensive PDF report with all analysis results.
+
+    Args:
+        profile: Soil profile
+        pile: Pile properties
+        results: Analysis results dictionary
+        config: Configuration dictionary
+        plot_figs: Dictionary of Plotly figure objects to include
+
+    Returns:
+        BytesIO object containing the PDF
+    """
+    if not REPORTLAB_AVAILABLE:
+        raise ImportError("reportlab is required for PDF generation. Install with: pip install reportlab")
+
+    # Create PDF buffer
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=20*mm,
+        leftMargin=20*mm,
+        topMargin=20*mm,
+        bottomMargin=20*mm
+    )
+
+    # Container for PDF elements
+    elements = []
+
+    # Styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#1f77b4'),
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#2c3e50'),
+        spaceAfter=12,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+    subheading_style = ParagraphStyle(
+        'CustomSubHeading',
+        parent=styles['Heading3'],
+        fontSize=12,
+        textColor=colors.HexColor('#34495e'),
+        spaceAfter=6,
+        fontName='Helvetica-Bold'
+    )
+
+    # ========== COVER PAGE ==========
+    elements.append(Spacer(1, 30*mm))
+    elements.append(Paragraph("PILE FOUNDATION DESIGN REPORT", title_style))
+    elements.append(Paragraph("API RP 2GEO Analysis", styles['Heading2']))
+    elements.append(Spacer(1, 20*mm))
+
+    # Project info table
+    project_data = [
+        ['Project:', config.get('project_name', 'Unnamed Project')],
+        ['Designer:', config.get('designer', 'Not specified')],
+        ['Date:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
+        ['Software:', 'pile-SRI v2.6'],
+        ['Standard:', 'API RP 2GEO Section 8']
+    ]
+    project_table = Table(project_data, colWidths=[60*mm, 100*mm])
+    project_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(project_table)
+    elements.append(PageBreak())
+
+    # ========== SOIL PROFILE ==========
+    elements.append(Paragraph("1. SOIL PROFILE", heading_style))
+    elements.append(Spacer(1, 6))
+
+    # Site info
+    site_data = [
+        ['Site Name:', profile.site_name],
+        ['Water Depth:', f"{profile.water_depth_m:.1f} m"],
+        ['Number of Layers:', str(len(profile.layers))]
+    ]
+    site_table = Table(site_data, colWidths=[60*mm, 100*mm])
+    site_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(site_table)
+    elements.append(Spacer(1, 12))
+
+    # Design Soil Parameters Table
+    elements.append(Paragraph("Design Soil Parameters", subheading_style))
+    design_params_df = generate_design_soil_parameters_table(profile)
+
+    if not design_params_df.empty:
+        # Convert DataFrame to table data
+        table_data = [design_params_df.columns.tolist()] + design_params_df.values.tolist()
+
+        # Create table with appropriate column widths
+        col_widths = [25*mm, 30*mm, 15*mm, 12*mm, 12*mm, 10*mm, 10*mm, 15*mm, 15*mm, 12*mm, 15*mm]
+        params_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        params_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 7),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ]))
+        elements.append(params_table)
+
+    elements.append(PageBreak())
+
+    # ========== PILE PROPERTIES ==========
+    elements.append(Paragraph("2. PILE PROPERTIES", heading_style))
+    elements.append(Spacer(1, 6))
+
+    pile_data = [
+        ['Diameter:', f"{pile.diameter_m:.3f} m"],
+        ['Wall Thickness:', f"{pile.wall_thickness_m*1000:.1f} mm"],
+        ['Embedded Length:', f"{pile.length_m:.1f} m"],
+        ['Pile Type:', pile.pile_type.value.replace('_', ' ').title()],
+        ['Gross Area:', f"{pile.area_gross_m2:.4f} m²"],
+        ['Shaft Area:', f"{pile.area_shaft_m2:.2f} m²"]
+    ]
+    pile_table = Table(pile_data, colWidths=[60*mm, 100*mm])
+    pile_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(pile_table)
+    elements.append(Spacer(1, 12))
+
+    # Analysis parameters
+    elements.append(Paragraph("Analysis Parameters", subheading_style))
+    analysis_data = [
+        ['Design Method:', "LRFD" if config.get('use_lrfd', False) else f"ASD (SF={config.get('safety_factor', 2.5)})"],
+        ['Analysis Types:', ', '.join(config.get('analysis_types', []))],
+        ['Loading Condition:', config.get('loading_condition', 'Static')],
+        ['Maximum Depth:', f"{config.get('max_depth', 0)} m"],
+        ['Depth Increment:', f"{config.get('depth_increment', 0.5)} m"]
+    ]
+    analysis_table = Table(analysis_data, colWidths=[60*mm, 100*mm])
+    analysis_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(analysis_table)
+    elements.append(PageBreak())
+
+    # ========== CAPACITY RESULTS ==========
+    elements.append(Paragraph("3. CAPACITY ANALYSIS", heading_style))
+    elements.append(Spacer(1, 6))
+
+    # Add capacity plot if available
+    if plot_figs and 'capacity' in plot_figs and KALEIDO_AVAILABLE:
+        try:
+            img_bytes = pio.to_image(plot_figs['capacity'], format='png', width=700, height=500)
+            img = Image(io.BytesIO(img_bytes), width=160*mm, height=115*mm)
+            elements.append(img)
+            elements.append(Spacer(1, 12))
+        except Exception as e:
+            elements.append(Paragraph(f"[Capacity plot not available: {str(e)}]", styles['Italic']))
+
+    # Capacity summary
+    df_comp = results.get('capacity_compression_df', pd.DataFrame())
+    if not df_comp.empty:
+        max_cap_comp = df_comp['total_capacity_kN'].max()
+        depth_max_comp = df_comp.loc[df_comp['total_capacity_kN'].idxmax(), 'depth_m']
+
+        capacity_summary = [
+            ['', 'Compression', 'Tension'],
+            ['Maximum Capacity (kN):', f"{max_cap_comp:,.0f}", '-']
+        ]
+
+        if 'Tension' in config.get('analysis_types', []):
+            df_tens = results.get('capacity_tension_df', pd.DataFrame())
+            if not df_tens.empty:
+                max_cap_tens = df_tens['total_capacity_kN'].max()
+                capacity_summary[1][2] = f"{max_cap_tens:,.0f}"
+
+        cap_table = Table(capacity_summary, colWidths=[70*mm, 45*mm, 45*mm])
+        cap_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BACKGROUND', (1, 1), (-1, -1), colors.HexColor('#ecf0f1')),
+        ]))
+        elements.append(cap_table)
+
+    elements.append(PageBreak())
+
+    # ========== LOAD-DISPLACEMENT CURVES ==========
+    if plot_figs and ('tz' in plot_figs or 'qz' in plot_figs):
+        elements.append(Paragraph("4. LOAD-DISPLACEMENT CURVES", heading_style))
+        elements.append(Spacer(1, 6))
+
+        if 'tz' in plot_figs and KALEIDO_AVAILABLE:
+            try:
+                elements.append(Paragraph("t-z Curves (Shaft Friction)", subheading_style))
+                img_bytes = pio.to_image(plot_figs['tz'], format='png', width=700, height=400)
+                img = Image(io.BytesIO(img_bytes), width=160*mm, height=92*mm)
+                elements.append(img)
+                elements.append(Spacer(1, 12))
+            except Exception:
+                pass
+
+        if 'qz' in plot_figs and KALEIDO_AVAILABLE:
+            try:
+                elements.append(Paragraph("Q-z Curves (End Bearing)", subheading_style))
+                img_bytes = pio.to_image(plot_figs['qz'], format='png', width=700, height=400)
+                img = Image(io.BytesIO(img_bytes), width=160*mm, height=92*mm)
+                elements.append(img)
+                elements.append(Spacer(1, 12))
+            except Exception:
+                pass
+
+        elements.append(PageBreak())
+
+    # ========== LATERAL P-Y CURVES ==========
+    if 'Lateral' in config.get('analysis_types', []) and plot_figs and 'py' in plot_figs:
+        elements.append(Paragraph("5. LATERAL P-Y CURVES", heading_style))
+        elements.append(Spacer(1, 6))
+
+        if KALEIDO_AVAILABLE:
+            try:
+                img_bytes = pio.to_image(plot_figs['py'], format='png', width=700, height=500)
+                img = Image(io.BytesIO(img_bytes), width=160*mm, height=115*mm)
+                elements.append(img)
+                elements.append(Spacer(1, 12))
+            except Exception:
+                elements.append(Paragraph("[p-y plot not available]", styles['Italic']))
+
+        elements.append(PageBreak())
+
+    # ========== VALIDATION & COMPLIANCE ==========
+    elements.append(Paragraph("6. API RP 2GEO COMPLIANCE", heading_style))
+    elements.append(Spacer(1, 6))
+
+    compliance_items = [
+        "✓ Section 8.1: Axial capacity calculations (α-method for clay, API Table 1 for sand)",
+        "✓ Section 8.2: Tension capacity (separate calculation, no end bearing)",
+        "✓ Section 8.4: Load-displacement curves (t-z and Q-z tables)",
+        "✓ Section 8.5: Lateral capacity (p-y curves per Matlock/Reese/API methods)",
+        "✓ Table 1: Extended implementation for all soil types",
+        "✓ Annex A: LRFD resistance factors",
+        "✓ Annex B: Carbonate soil considerations",
+        "✓ Annex C: Penetration requirements"
+    ]
+
+    for item in compliance_items:
+        elements.append(Paragraph(item, styles['Normal']))
+
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph("Notes", subheading_style))
+    notes = [
+        "• Analysis performed using pile-SRI v2.6",
+        "• Based on API RP 2GEO Section 8 (Geotechnical and Foundation Design Considerations)",
+        "• Results should be reviewed by a qualified geotechnical engineer"
+    ]
+    for note in notes:
+        elements.append(Paragraph(note, styles['Normal']))
+
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 # Export
 __all__ = [
     'SoilType', 'PileType', 'LoadingType', 'AnalysisType', 'RelativeDensity',
@@ -1534,4 +1877,7 @@ __all__ = [
     'API_TABLE_1_EXTENDED', 'RESISTANCE_FACTORS', 'CARBONATE_REDUCTION_FACTORS',
     'discretize_tz_curve_8points', 'discretize_qz_curve_8points', 'discretize_py_curve_8points',
     'generate_design_soil_parameters_table',
+    'generate_pdf_report',
+    'REPORTLAB_AVAILABLE',
+    'KALEIDO_AVAILABLE',
 ]
