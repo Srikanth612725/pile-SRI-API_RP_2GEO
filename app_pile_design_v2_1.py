@@ -1168,7 +1168,42 @@ def render_results(config, pile, profile):
                         "text/csv",
                         use_container_width=True
                     )
-            
+
+            # Design Soil Parameters Summary Table
+            st.markdown("---")
+            st.markdown("### 📋 Design Soil Parameters Summary")
+            st.caption("Input and derived parameters used in analysis")
+
+            try:
+                design_params_df = generate_design_soil_parameters_table(profile)
+                if design_params_df is not None and not design_params_df.empty:
+                    st.dataframe(design_params_df, use_container_width=True, hide_index=True)
+
+                    # Download button for design parameters
+                    csv_design = design_params_df.to_csv(index=False)
+                    st.download_button(
+                        "📥 Download Design Soil Parameters",
+                        csv_design,
+                        "design_soil_parameters.csv",
+                        "text/csv",
+                        use_container_width=True
+                    )
+
+                    with st.expander("ℹ️ Parameter Definitions"):
+                        st.markdown("""
+                        **Input Parameters:**
+                        - γ', φ', Su, ε₅₀ (from testing)
+
+                        **Derived Parameters:**
+                        - β, Nq (from API Table 1 based on relative density)
+                        - k (from API Table 5 based on φ')
+                        - fplug, qpun (limiting values from API Table 1)
+                        """)
+                else:
+                    st.info("ℹ️ Add soil layers to see design parameters")
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+
             # Preview tables
             st.markdown("---")
             st.markdown("### 👁️ Preview Tables")
@@ -1192,41 +1227,6 @@ def render_results(config, pile, profile):
         # TAB 5: Validation
         with tab5:
             st.subheader("✅ API RP 2GEO Compliance Validation")
-
-            # Design Soil Parameters Summary
-            st.markdown("### 📋 Design Soil Parameters Summary")
-            st.caption("Input parameters and derived values used in analysis")
-
-            try:
-                design_params_df = generate_design_soil_parameters_table(profile)
-                if design_params_df is not None and not design_params_df.empty:
-                    st.dataframe(design_params_df, use_container_width=True, hide_index=True)
-                else:
-                    st.warning("⚠️ No soil parameters to display. Please add soil layers.")
-            except Exception as e:
-                st.error(f"⚠️ Error generating design parameters table: {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
-
-            with st.expander("ℹ️ Parameter Definitions"):
-                st.markdown("""
-                **Input Parameters** (provided by user):
-                - **γ'**: Submerged unit weight (kN/m³)
-                - **φ'**: Angle of internal friction (degrees) - for sands
-                - **Su**: Undrained shear strength (kPa) - for clays
-                - **ε₅₀**: Strain at 50% capacity (%) - from UU testing (optional, default 2.0%)
-
-                **Derived Parameters** (calculated from API RP 2GEO):
-                - **β**: Shaft friction coefficient (API Table 1)
-                - **Nq**: Bearing capacity factor (API Table 1)
-                - **fplug**: Limiting unit shaft friction (kPa) - API Table 1
-                - **qpun**: Limiting unit end bearing (MPa) - API Table 1
-                - **k**: Subgrade reaction modulus (kN/m³) - API Table 5, interpolated from φ'
-
-                **Note:** k values for sand are automatically calculated from API Table 5 based on friction angle.
-                """)
-
-            st.markdown("---")
 
             # Design method
             st.markdown("### Design Method")
@@ -1384,20 +1384,14 @@ def render_results(config, pile, profile):
             ✅ **Annex B:** Carbonate soil considerations
             
             ✅ **Annex C:** Penetration requirements ({tip_result['penetration_status']})
-            
+
             ---
-            
-            ### PROFESSIONAL CERTIFICATION
-            
-            This analysis was performed using **pile-SRI v2.6**, which implements:
-            - Full API RP 2GEO Section 8 compliance
-            - Industry-standard 5-point discretization
-            - LRFD resistance factors
-            - Enhanced carbonate soil handling
-            - Automatic penetration validation
-            
-            **Important:** This analysis should be reviewed by a licensed professional engineer 
-            before use in final design.
+
+            ### NOTES
+
+            - Analysis performed using pile-SRI v2.6
+            - Based on API RP 2GEO Section 8 (Geotechnical and Foundation Design Considerations)
+            - Results should be reviewed by a qualified geotechnical engineer
             
             ---
             
