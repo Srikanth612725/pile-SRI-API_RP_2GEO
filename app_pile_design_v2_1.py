@@ -1197,8 +1197,16 @@ def render_results(config, pile, profile):
             st.markdown("### 📋 Design Soil Parameters Summary")
             st.caption("Input parameters and derived values used in analysis")
 
-            design_params_df = generate_design_soil_parameters_table(profile)
-            st.dataframe(design_params_df, use_container_width=True, hide_index=True)
+            try:
+                design_params_df = generate_design_soil_parameters_table(profile)
+                if design_params_df is not None and not design_params_df.empty:
+                    st.dataframe(design_params_df, use_container_width=True, hide_index=True)
+                else:
+                    st.warning("⚠️ No soil parameters to display. Please add soil layers.")
+            except Exception as e:
+                st.error(f"⚠️ Error generating design parameters table: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
             with st.expander("ℹ️ Parameter Definitions"):
                 st.markdown("""
