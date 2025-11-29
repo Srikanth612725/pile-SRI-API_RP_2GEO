@@ -50,9 +50,96 @@ except ImportError:
 
 try:
     import plotly.io as pio
+    import os
+
+    # Configure chromium path for kaleido
+    chromium_paths = [
+        '/usr/local/bin/chromium',
+        '/usr/local/bin/chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/root/.cache/ms-playwright/chromium-1194/chrome-linux/chrome',
+    ]
+
+    # Find available chromium
+    chromium_exe = None
+    for path in chromium_paths:
+        if os.path.exists(path):
+            chromium_exe = path
+            break
+
+    # Set environment variable for choreographer (used by kaleido)
+    if chromium_exe:
+        os.environ['CHROME_EXECUTABLE_PATH'] = chromium_exe
+        os.environ['CHROMIUM_EXECUTABLE_PATH'] = chromium_exe
+
     KALEIDO_AVAILABLE = True
 except ImportError:
     KALEIDO_AVAILABLE = False
+
+
+# ============================================================================
+# KALEIDO CONFIGURATION HELPER
+# ============================================================================
+
+def configure_kaleido_chromium():
+    """
+    Configure kaleido to use available chromium binary.
+    Called before any plotly image export.
+    """
+    if not KALEIDO_AVAILABLE:
+        return False
+
+    try:
+        import subprocess
+        import glob
+
+        # Check if chromium is accessible
+        chromium_paths = [
+            '/usr/local/bin/chromium',
+            '/usr/local/bin/chrome',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/google-chrome',
+        ]
+
+        # Also check playwright installation
+        playwright_paths = glob.glob('/root/.cache/ms-playwright/chromium-*/chrome-linux/chrome')
+        chromium_paths.extend(playwright_paths)
+
+        for chrome_path in chromium_paths:
+            if os.path.exists(chrome_path):
+                # Create symlinks if needed
+                for link in ['/usr/local/bin/chromium', '/usr/local/bin/chrome', '/usr/local/bin/google-chrome']:
+                    if not os.path.exists(link):
+                        try:
+                            os.symlink(chrome_path, link)
+                        except:
+                            pass
+
+                # Set environment
+                os.environ['CHROME_EXECUTABLE_PATH'] = chrome_path
+                os.environ['CHROMIUM_EXECUTABLE_PATH'] = chrome_path
+                return True
+
+        # If no chromium found, try to install playwright chromium
+        try:
+            subprocess.run(['playwright', 'install', 'chromium'],
+                         capture_output=True, timeout=60)
+            # Retry finding chromium
+            playwright_paths = glob.glob('/root/.cache/ms-playwright/chromium-*/chrome-linux/chrome')
+            if playwright_paths:
+                chrome_path = playwright_paths[0]
+                os.environ['CHROME_EXECUTABLE_PATH'] = chrome_path
+                os.environ['CHROMIUM_EXECUTABLE_PATH'] = chrome_path
+                return True
+        except:
+            pass
+
+        return False
+    except Exception as e:
+        print(f"Kaleido configuration warning: {e}")
+        return False
 
 
 # ============================================================================
@@ -1581,6 +1668,10 @@ def generate_pdf_report(
     """
     if not REPORTLAB_AVAILABLE:
         raise ImportError("reportlab is required for PDF generation. Install with: pip install reportlab")
+
+    # Configure kaleido/chromium for plot exports
+    if plot_figs and KALEIDO_AVAILABLE:
+        configure_kaleido_chromium()
 
     # Create PDF buffer
     buffer = io.BytesIO()
