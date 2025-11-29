@@ -12,3 +12,7 @@ plotly>=5.19.0
 
 # Data & Engineering
 openpyxl>=3.1.0
+
+# PDF Report Generation
+reportlab>=4.0.0
+kaleido>=0.2.1

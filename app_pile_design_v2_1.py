@@ -50,6 +50,8 @@ try:
         PileDesignAnalysis,
         API_TABLE_1_EXTENDED, RESISTANCE_FACTORS, CARBONATE_REDUCTION_FACTORS,
         generate_design_soil_parameters_table,
+        generate_pdf_report,
+        REPORTLAB_AVAILABLE,
     )
     CALC_ENGINE_AVAILABLE = True
 except ImportError:
@@ -829,7 +831,10 @@ def render_results(config, pile, profile):
             analysis_type=analysis_type,
             use_lrfd=config['use_lrfd']
         )
-        
+
+        # Dictionary to store plot figures for PDF export
+        plot_figs = {}
+
         # Create tabs
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "📊 Capacity Profiles",
@@ -839,13 +844,14 @@ def render_results(config, pile, profile):
             "🔍 Validation",
             "📄 Report"
         ])
-        
+
         # TAB 1: Capacity Profiles
         with tab1:
             st.subheader("Axial Capacity Profiles")
-            
+
             # 3-panel plot
             fig_cap = create_capacity_plots(results, config)
+            plot_figs['capacity'] = fig_cap  # Store for PDF export
             st.plotly_chart(fig_cap, use_container_width=True)
             
             # Metrics
@@ -956,6 +962,7 @@ def render_results(config, pile, profile):
                                                     showline=True, linewidth=2, linecolor='black')
                             fig_tz_comp.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
                                                     showline=True, linewidth=2, linecolor='black')
+                            plot_figs['tz_compression'] = fig_tz_comp  # Store for PDF export
                             st.plotly_chart(fig_tz_comp, use_container_width=True)
 
                             # Display compression table with formatting
@@ -994,6 +1001,7 @@ def render_results(config, pile, profile):
                                                     showline=True, linewidth=2, linecolor='black')
                             fig_tz_tens.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
                                                     showline=True, linewidth=2, linecolor='black')
+                            plot_figs['tz_tension'] = fig_tz_tens  # Store for PDF export
                             st.plotly_chart(fig_tz_tens, use_container_width=True)
 
                             # Display tension table with formatting
@@ -1041,6 +1049,7 @@ def render_results(config, pile, profile):
                                        showline=True, linewidth=2, linecolor='black')
                     fig_qz.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
                                        showline=True, linewidth=2, linecolor='black')
+                    plot_figs['qz'] = fig_qz  # Store for PDF export
                     st.plotly_chart(fig_qz, use_container_width=True)
 
                     # Display wide-format table with formatting
@@ -1092,6 +1101,7 @@ def render_results(config, pile, profile):
                                        showline=True, linewidth=2, linecolor='black')
                     fig_py.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray',
                                        showline=True, linewidth=2, linecolor='black')
+                    plot_figs['py'] = fig_py  # Store for PDF export
                     st.plotly_chart(fig_py, use_container_width=True)
 
                     # Display wide-format table
@@ -1301,7 +1311,38 @@ def render_results(config, pile, profile):
         # TAB 6: Report
         with tab6:
             st.subheader("📄 Design Summary Report")
-            
+
+            # PDF Download Button
+            if REPORTLAB_AVAILABLE:
+                try:
+                    # Generate PDF report
+                    pdf_buffer = generate_pdf_report(
+                        profile=profile,
+                        pile=pile,
+                        results=results,
+                        config=config,
+                        plot_figs=plot_figs
+                    )
+
+                    # Provide download button
+                    st.download_button(
+                        label="📥 Download PDF Report",
+                        data=pdf_buffer,
+                        file_name=f"pile_foundation_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary"
+                    )
+                    st.success("✅ PDF report ready for download!")
+
+                except Exception as e:
+                    st.error(f"❌ PDF generation failed: {str(e)}")
+                    st.exception(e)
+            else:
+                st.warning("⚠️ PDF generation requires reportlab and kaleido. Install with: `pip install reportlab kaleido`")
+
+            st.markdown("---")
+
             st.markdown(f"""
             ### PROJECT INFORMATION
             - **Project:** {config['project_name']}
