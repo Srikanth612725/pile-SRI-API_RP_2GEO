@@ -376,7 +376,9 @@ def render_soil_input() -> SoilProfile:
             with col3:
                 layer['z_top'] = st.number_input("Top (m)", value=layer['z_top'], step=0.5, key=f"ztop_{idx}")
             with col4:
-                layer['z_bot'] = st.number_input("Bottom (m)", value=layer['z_bot'], step=0.5, key=f"zbot_{idx}")
+                layer['z_bot'] = st.number_input("Bottom (m)", value=layer['z_bot'], step=0.5,
+                                                 max_value=200.0, key=f"zbot_{idx}",
+                                                 help="Layer bottom depth (max 200m for deep analyses)")
 
             st.markdown("---")
             
@@ -399,7 +401,7 @@ def render_soil_input() -> SoilProfile:
                         c1, c2, c3 = st.columns([1, 1, 1])
                         with c1:
                             gz = st.number_input("Depth", value=layer['z_top'],
-                                               min_value=layer['z_top'], max_value=layer['z_bot'],
+                                               min_value=layer['z_top'], max_value=200.0,
                                                step=0.1, key=f"gz_{idx}")
                         with c2:
                             gv = st.number_input("γ'", value=8.0, step=0.5, key=f"gv_{idx}")
@@ -435,7 +437,7 @@ def render_soil_input() -> SoilProfile:
                         c1, c2, c3 = st.columns([1, 1, 1])
                         with c1:
                             pz = st.number_input("Depth", value=layer['z_top'],
-                                               min_value=layer['z_top'], max_value=layer['z_bot'],
+                                               min_value=layer['z_top'], max_value=200.0,
                                                step=0.1, key=f"pz_{idx}")
                         with c2:
                             pv = st.number_input(param_label, value=default_val, step=5.0, key=f"pv_{idx}")
@@ -463,7 +465,7 @@ def render_soil_input() -> SoilProfile:
                             c1, c2, c3 = st.columns([1, 1, 1])
                             with c1:
                                 eps_z = st.number_input("Depth", value=layer['z_top'],
-                                                       min_value=layer['z_top'], max_value=layer['z_bot'],
+                                                       min_value=layer['z_top'], max_value=200.0,
                                                        step=0.1, key=f"epsz_{idx}")
                             with c2:
                                 eps_v = st.number_input("ε₅₀ (%)", value=2.0, step=0.1, key=f"epsv_{idx}",
