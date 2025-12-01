@@ -1,4 +1,4 @@
-# pile-SRI v2.1 Integration Package
+# pile-SRI v2.6.1 Integration Package
 
 ## 🎉 Everything You Need is Here!
 
