@@ -50,8 +50,6 @@ try:
         PileDesignAnalysis,
         API_TABLE_1_EXTENDED, RESISTANCE_FACTORS, CARBONATE_REDUCTION_FACTORS,
         generate_design_soil_parameters_table,
-        generate_pdf_report,
-        REPORTLAB_AVAILABLE,
     )
     CALC_ENGINE_AVAILABLE = True
 except ImportError:
@@ -1312,34 +1310,7 @@ def render_results(config, pile, profile):
         with tab6:
             st.subheader("📄 Design Summary Report")
 
-            # PDF Download Button
-            if REPORTLAB_AVAILABLE:
-                try:
-                    # Generate PDF report
-                    pdf_buffer = generate_pdf_report(
-                        profile=profile,
-                        pile=pile,
-                        results=results,
-                        config=config,
-                        plot_figs=plot_figs
-                    )
-
-                    # Provide download button
-                    st.download_button(
-                        label="📥 Download PDF Report",
-                        data=pdf_buffer,
-                        file_name=f"pile_foundation_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                        type="primary"
-                    )
-                    st.success("✅ PDF report ready for download!")
-
-                except Exception as e:
-                    st.error(f"❌ PDF generation failed: {str(e)}")
-                    st.exception(e)
-            else:
-                st.warning("⚠️ PDF generation requires reportlab and kaleido. Install with: `pip install reportlab kaleido`")
+            st.info("💡 **Tip:** Use the download buttons in other tabs to export plots (PNG) and tables (CSV)")
 
             st.markdown("---")
 
