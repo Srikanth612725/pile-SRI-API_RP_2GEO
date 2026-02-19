@@ -291,8 +291,7 @@ def render_sidebar() -> Dict:
 
 def render_pile_input() -> PileProperties:
     """Render pile properties input."""
-    st.subheader("🔨 Pile Properties")
-
+    # Subheader removed - now shown in expander title
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         diameter = st.number_input("Diameter (m)", 0.3, 5.0, 1.4, 0.1)
@@ -398,15 +397,16 @@ def render_soil_input() -> SoilProfile:
                 with col_g:
                     st.markdown("**γ' (kN/m³)**")
                     with st.form(f"add_gamma_{idx}"):
-                        c1, c2, c3 = st.columns([1, 1, 1])
+                        c1, c2, c3 = st.columns([2, 2, 1])
                         with c1:
-                            gz = st.number_input("Depth", value=layer['z_top'],
+                            gz = st.number_input("Depth (m)", value=layer['z_top'],
                                                min_value=layer['z_top'], max_value=200.0,
-                                               step=0.1, key=f"gz_{idx}")
+                                               step=0.1, key=f"gz_{idx}", label_visibility="visible")
                         with c2:
-                            gv = st.number_input("γ'", value=8.0, step=0.5, key=f"gv_{idx}")
+                            gv = st.number_input("Value", value=8.0, step=0.5, key=f"gv_{idx}", label_visibility="visible")
                         with c3:
-                            if st.form_submit_button("Add", use_container_width=True):
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.form_submit_button("➕", use_container_width=True):
                                 if 'gamma_points' not in layer:
                                     layer['gamma_points'] = []
                                 layer['gamma_points'].append(SoilPoint(gz, gv))
@@ -434,15 +434,16 @@ def render_soil_input() -> SoilProfile:
                         default_val = 32.0
 
                     with st.form(f"add_param_{idx}"):
-                        c1, c2, c3 = st.columns([1, 1, 1])
+                        c1, c2, c3 = st.columns([2, 2, 1])
                         with c1:
-                            pz = st.number_input("Depth", value=layer['z_top'],
+                            pz = st.number_input("Depth (m)", value=layer['z_top'],
                                                min_value=layer['z_top'], max_value=200.0,
-                                               step=0.1, key=f"pz_{idx}")
+                                               step=0.1, key=f"pz_{idx}", label_visibility="visible")
                         with c2:
-                            pv = st.number_input(param_label, value=default_val, step=5.0, key=f"pv_{idx}")
+                            pv = st.number_input("Value", value=default_val, step=5.0, key=f"pv_{idx}", label_visibility="visible")
                         with c3:
-                            if st.form_submit_button("Add", use_container_width=True):
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.form_submit_button("➕", use_container_width=True):
                                 if param_points not in layer:
                                     layer[param_points] = []
                                 layer[param_points].append(SoilPoint(pz, pv))
@@ -462,16 +463,17 @@ def render_soil_input() -> SoilProfile:
                         st.markdown("**ε₅₀ (%)** ⭐")
                         st.caption("Optional: from UU testing")
                         with st.form(f"add_eps_{idx}"):
-                            c1, c2, c3 = st.columns([1, 1, 1])
+                            c1, c2, c3 = st.columns([2, 2, 1])
                             with c1:
-                                eps_z = st.number_input("Depth", value=layer['z_top'],
+                                eps_z = st.number_input("Depth (m)", value=layer['z_top'],
                                                        min_value=layer['z_top'], max_value=200.0,
-                                                       step=0.1, key=f"epsz_{idx}")
+                                                       step=0.1, key=f"epsz_{idx}", label_visibility="visible")
                             with c2:
-                                eps_v = st.number_input("ε₅₀ (%)", value=2.0, step=0.1, key=f"epsv_{idx}",
-                                                       help="Strain at 50% capacity from UU testing. Default: 2.0%")
+                                eps_v = st.number_input("Value (%)", value=2.0, step=0.1, key=f"epsv_{idx}",
+                                                       help="Strain at 50% from UU test", label_visibility="visible")
                             with c3:
-                                if st.form_submit_button("Add", use_container_width=True):
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                if st.form_submit_button("➕", use_container_width=True):
                                     if 'epsilon_50_points' not in layer:
                                         layer['epsilon_50_points'] = []
                                     layer['epsilon_50_points'].append(SoilPoint(eps_z, eps_v))
@@ -1431,14 +1433,15 @@ def main():
     config = render_sidebar()
     
     st.divider()
-    
-    # Input sections
-    col_pile, col_soil = st.columns([1, 1])
-    with col_pile:
+
+    # Input sections - STACKED LAYOUT for better space utilization
+    # Pile properties in collapsible expander
+    with st.expander("🔨 Pile Properties", expanded=False):
         pile = render_pile_input()
-    with col_soil:
-        profile = render_soil_input()
-    
+
+    # Soil profile uses full width
+    profile = render_soil_input()
+
     st.divider()
     
     # Run analysis button

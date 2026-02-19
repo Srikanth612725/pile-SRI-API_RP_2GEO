@@ -36,6 +36,13 @@ import warnings
 from datetime import datetime
 import io
 
+# NumPy 2.0 compatibility: trapz removed, use trapezoid
+# For NumPy < 2.0: trapezoid might not exist, use trapz
+if hasattr(np, 'trapezoid'):
+    np_integrate = np.trapezoid
+else:
+    np_integrate = np.trapz
+
 # PDF generation imports (imported conditionally to avoid errors if not installed)
 try:
     from reportlab.lib.pagesizes import A4
@@ -650,7 +657,7 @@ class SoilProfile:
         if len(gamma_primes) < 2:
             return 0.0
 
-        return float(np.trapezoid(gamma_primes, depths))
+        return float(np_integrate(gamma_primes, depths))
 
 
 # ============================================================================
