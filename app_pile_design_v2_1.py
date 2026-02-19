@@ -291,8 +291,7 @@ def render_sidebar() -> Dict:
 
 def render_pile_input() -> PileProperties:
     """Render pile properties input."""
-    st.subheader("🔨 Pile Properties")
-
+    # Subheader removed - now shown in expander title
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         diameter = st.number_input("Diameter (m)", 0.3, 5.0, 1.4, 0.1)
@@ -1434,14 +1433,15 @@ def main():
     config = render_sidebar()
     
     st.divider()
-    
-    # Input sections
-    col_pile, col_soil = st.columns([1, 1])
-    with col_pile:
+
+    # Input sections - STACKED LAYOUT for better space utilization
+    # Pile properties in collapsible expander
+    with st.expander("🔨 Pile Properties", expanded=False):
         pile = render_pile_input()
-    with col_soil:
-        profile = render_soil_input()
-    
+
+    # Soil profile uses full width
+    profile = render_soil_input()
+
     st.divider()
     
     # Run analysis button
