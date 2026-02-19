@@ -650,7 +650,7 @@ class SoilProfile:
         if len(gamma_primes) < 2:
             return 0.0
 
-        return float(np.trapz(gamma_primes, depths))
+        return float(np.trapezoid(gamma_primes, depths))
 
 
 # ============================================================================
